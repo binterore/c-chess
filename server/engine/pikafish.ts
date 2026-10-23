@@ -64,13 +64,23 @@ export function uciMoveToCoords(uci: string): { from: Position; to: Position } {
   };
 }
 
+interface QueuedSearch {
+  fen: string;
+  depth: number;
+  movetime: number;
+  resolve: (res: PikafishSearchResult) => void;
+  reject: (err: Error) => void;
+}
+
 export class PikafishEngine {
   private process: ChildProcessWithoutNullStreams | null = null;
   private isReady: boolean = false;
   private binaryPath: string | null = null;
   private nnuePath: string | null = null;
-  private pendingCallback: ((result: PikafishSearchResult) => void) | null = null;
   private outputBuffer: string = '';
+  private currentSearch: QueuedSearch | null = null;
+  private queue: QueuedSearch[] = [];
+  private searchTimeout: NodeJS.Timeout | null = null;
 
   constructor() {
     this.resolvePaths();
@@ -150,35 +160,73 @@ export class PikafishEngine {
 
       if (line === 'readyok') {
         this.isReady = true;
+        this.processQueue();
       }
 
-      if (line.startsWith('bestmove ')) {
+      if (line.startsWith('bestmove ') && this.currentSearch) {
+        if (this.searchTimeout) {
+          clearTimeout(this.searchTimeout);
+          this.searchTimeout = null;
+        }
+
         const parts = line.split(' ');
         const bestmove = parts[1];
+        const search = this.currentSearch;
+        this.currentSearch = null;
+
         if (bestmove && bestmove !== '(none)') {
           const coords = uciMoveToCoords(bestmove);
-          const callback = this.pendingCallback;
-          this.pendingCallback = null;
-          if (callback) {
-            callback({
-              bestmove,
-              from: coords.from,
-              to: coords.to
-            });
-          }
+          search.resolve({
+            bestmove,
+            from: coords.from,
+            to: coords.to
+          });
+        } else {
+          search.reject(new Error('Pikafish returned no legal move (none)'));
         }
+
+        this.processQueue();
       }
     }
+  }
+
+  private processQueue() {
+    if (this.currentSearch || this.queue.length === 0) {
+      return;
+    }
+
+    if (!this.process) {
+      this.initProcess();
+      return;
+    }
+
+    if (!this.isReady) {
+      this.send('isready');
+      return;
+    }
+
+    const item = this.queue.shift();
+    if (!item) return;
+
+    this.currentSearch = item;
+
+    this.searchTimeout = setTimeout(() => {
+      if (this.currentSearch === item) {
+        this.currentSearch = null;
+        this.searchTimeout = null;
+        item.reject(new Error('Pikafish search timed out'));
+        this.processQueue();
+      }
+    }, item.movetime + 8000);
+
+    this.send(`position fen ${item.fen}`);
+    this.send(`go depth ${item.depth} movetime ${item.movetime}`);
   }
 
   public async search(
     fen: string,
     options: { depth?: number; movetime?: number } = {}
   ): Promise<PikafishSearchResult> {
-    if (!this.process) {
-      this.initProcess();
-    }
-
     if (!this.isAvailable()) {
       throw new Error('Pikafish binary not available');
     }
@@ -187,20 +235,14 @@ export class PikafishEngine {
     const movetime = options.movetime || 600;
 
     return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        if (this.pendingCallback) {
-          this.pendingCallback = null;
-          reject(new Error('Pikafish search timed out'));
-        }
-      }, movetime + 5000);
-
-      this.pendingCallback = (result) => {
-        clearTimeout(timeout);
-        resolve(result);
-      };
-
-      this.send(`position fen ${fen}`);
-      this.send(`go depth ${depth} movetime ${movetime}`);
+      this.queue.push({
+        fen,
+        depth,
+        movetime,
+        resolve,
+        reject
+      });
+      this.processQueue();
     });
   }
 

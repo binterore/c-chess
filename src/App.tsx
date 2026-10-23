@@ -25,7 +25,7 @@ import { Board } from './components/Board';
 import { KillBanner } from './components/effects/KillBanner';
 import { VictoryModal } from './components/effects/VictoryModal';
 import { LobbyModal } from './components/LobbyModal';
-import { GameControls } from './components/GameControls';
+import { PlayerBar, ActionToolbar } from './components/GameControls';
 import { ChatBox } from './components/ChatBox';
 import { getSocket } from './services/socket';
 import { soundManager } from './audio/soundManager';
@@ -66,6 +66,7 @@ export const App: React.FC = () => {
     'medium'
   );
   const [isAiThinking, setIsAiThinking] = useState(false);
+  const [showChatModal, setShowChatModal] = useState(false);
 
   const aiThinkingRef = useRef(false);
 
@@ -534,8 +535,25 @@ export const App: React.FC = () => {
     }
   };
 
+  const redPlayer = Object.values(players).find((p) => p.color === 'red') || {
+    name: gameMode === 'ai' && playerColor === 'black' ? 'AI 大师' : '红方',
+    timeLeft: 600
+  };
+
+  const blackPlayer = Object.values(players).find(
+    (p) => p.color === 'black'
+  ) || {
+    name: gameMode === 'ai' && playerColor === 'red' ? 'AI 大师' : '黑方',
+    timeLeft: 600
+  };
+
+  const topPlayer = flipped ? redPlayer : blackPlayer;
+  const topColor: PieceColor = flipped ? 'red' : 'black';
+  const bottomPlayer = flipped ? blackPlayer : redPlayer;
+  const bottomColor: PieceColor = flipped ? 'black' : 'red';
+
   return (
-    <div className="min-h-screen bg-stone-950 text-stone-100 flex flex-col items-center justify-center p-2 md:p-6 overflow-x-hidden relative">
+    <div className="min-h-screen bg-stone-950 text-stone-100 flex flex-col items-center justify-center p-1 sm:p-4 overflow-x-hidden relative">
       {notice && (
         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 bg-amber-500 text-stone-950 font-bold px-5 py-2.5 rounded-full shadow-2xl font-serif-sc animate-bounce text-sm">
           {notice}
@@ -602,6 +620,26 @@ export const App: React.FC = () => {
         </div>
       )}
 
+      {showChatModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 p-2 sm:p-4 backdrop-blur-sm">
+          <div className="relative w-full max-w-sm bg-stone-900 border border-stone-800 rounded-2xl overflow-hidden shadow-2xl">
+            <div className="flex justify-between items-center px-4 py-2 bg-stone-950 border-b border-stone-800">
+              <span className="text-xs font-bold text-amber-300 font-serif-sc">局内互动</span>
+              <button
+                onClick={() => setShowChatModal(false)}
+                className="text-stone-400 hover:text-stone-200 text-xs px-2 py-1 rounded-lg cursor-pointer"
+              >
+                关闭
+              </button>
+            </div>
+            <ChatBox
+              messages={chatMessages}
+              onSendMessage={handleSendChat}
+            />
+          </div>
+        </div>
+      )}
+
       <KillBanner effect={activeEffect || null} />
 
       {result && (
@@ -622,8 +660,16 @@ export const App: React.FC = () => {
           initialRoomCode={initialRoomParam}
         />
       ) : (
-        <div className="w-full max-w-6xl flex flex-col lg:flex-row items-center justify-center gap-6 z-10">
-          <div className="flex flex-col items-center">
+        <div className="w-full max-w-5xl flex flex-col lg:flex-row items-center justify-center gap-4 lg:gap-8 z-10 py-1">
+          <div className="w-full flex flex-col items-center gap-1.5 max-w-[520px]">
+            <PlayerBar
+              player={topPlayer}
+              color={topColor}
+              isCurrentTurn={turn === topColor && !result}
+              isThinking={gameMode === 'ai' && isAiThinking && turn === topColor}
+              isSelf={playerColor === topColor}
+            />
+
             <Board
               board={board}
               selectedPos={selectedPos}
@@ -634,26 +680,28 @@ export const App: React.FC = () => {
               activeEffect={activeEffect}
               onSquareClick={handleSquareClick}
             />
-          </div>
 
-          <div className="w-full max-w-sm flex flex-col gap-4">
-            <GameControls
-              status={result ? 'ended' : 'playing'}
-              turn={turn}
-              playerColor={playerColor}
-              players={players}
-              spectatorsCount={spectators.length}
-              roomId={roomId}
-              isAiMode={gameMode === 'ai'}
-              isLocalMode={gameMode === 'local'}
-              flipped={flipped}
-              onFlipBoard={() => setFlipped(!flipped)}
-              onResign={handleResign}
-              onOfferDraw={handleOfferDraw}
-              onUndo={handleUndo}
-              onExit={handleExit}
+            <PlayerBar
+              player={bottomPlayer}
+              color={bottomColor}
+              isCurrentTurn={turn === bottomColor && !result}
+              isThinking={gameMode === 'ai' && isAiThinking && turn === bottomColor}
+              isSelf={playerColor === bottomColor}
             />
 
+            <ActionToolbar
+              roomId={roomId}
+              spectatorsCount={spectators.length}
+              onUndo={handleUndo}
+              onOfferDraw={handleOfferDraw}
+              onResign={handleResign}
+              onFlipBoard={() => setFlipped(!flipped)}
+              onExit={handleExit}
+              onToggleChat={() => setShowChatModal(true)}
+            />
+          </div>
+
+          <div className="hidden lg:flex w-80 flex-col gap-4">
             <ChatBox
               messages={chatMessages}
               onSendMessage={handleSendChat}

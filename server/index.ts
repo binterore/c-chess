@@ -111,21 +111,21 @@ io.on('connection', (socket: Socket) => {
     if (engine === 'pikafish' && pikafish.isAvailable()) {
       try {
         const fen = boardToFen(board, turn);
-        let depth = 8;
-        let movetime = 600;
+        let depth = 10;
+        let movetime = 800;
 
         if (level === 'easy') {
-          depth = 3;
-          movetime = 150;
-        } else if (level === 'medium') {
           depth = 6;
-          movetime = 350;
-        } else if (level === 'hard') {
+          movetime = 400;
+        } else if (level === 'medium') {
           depth = 10;
           movetime = 800;
-        } else if (level === 'master') {
+        } else if (level === 'hard') {
           depth = 14;
           movetime = 1500;
+        } else if (level === 'master') {
+          depth = 18;
+          movetime = 2500;
         }
 
         const res = await pikafish.search(fen, { depth, movetime });
@@ -138,7 +138,7 @@ io.on('connection', (socket: Socket) => {
         });
         return;
       } catch (err) {
-        console.error('Pikafish search failed, fallback to heuristic AI', err);
+        console.error('Pikafish search failed, fallback to minimax AI', err);
       }
     }
 

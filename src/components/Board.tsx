@@ -1,9 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import {
   BoardState,
   KillPatternType,
-  Piece,
-  PieceColor,
   Position
 } from '../types/chess';
 import { PieceView } from './PieceView';
@@ -36,13 +34,53 @@ export const Board: React.FC<BoardProps> = ({
   activeEffect,
   onSquareClick
 }) => {
-  const cellWidth = 56;
-  const cellHeight = 56;
-  const paddingX = 40;
-  const paddingY = 40;
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [boardDimension, setBoardDimension] = useState<{
+    cellWidth: number;
+    cellHeight: number;
+    paddingX: number;
+    paddingY: number;
+    boardWidth: number;
+    boardHeight: number;
+  }>({
+    cellWidth: 54,
+    cellHeight: 54,
+    paddingX: 36,
+    paddingY: 36,
+    boardWidth: 504,
+    boardHeight: 558
+  });
 
-  const boardWidth = paddingX * 2 + cellWidth * 8;
-  const boardHeight = paddingY * 2 + cellHeight * 9;
+  useEffect(() => {
+    const updateSize = () => {
+      const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 600;
+      const screenHeight = typeof window !== 'undefined' ? window.innerHeight : 800;
+
+      const maxWidth = Math.min(screenWidth - 20, 520);
+      const maxHeight = screenHeight - 220;
+      const availableWidth = Math.min(maxWidth, Math.floor(maxHeight * (8 / 9.5)));
+
+      const cell = Math.max(34, Math.floor((availableWidth - 32) / 8));
+      const padX = Math.max(16, Math.floor((availableWidth - cell * 8) / 2));
+      const padY = padX;
+
+      setBoardDimension({
+        cellWidth: cell,
+        cellHeight: cell,
+        paddingX: padX,
+        paddingY: padY,
+        boardWidth: padX * 2 + cell * 8,
+        boardHeight: padY * 2 + cell * 9
+      });
+    };
+
+    updateSize();
+    window.addEventListener('resize', updateSize);
+    return () => window.removeEventListener('resize', updateSize);
+  }, []);
+
+  const { cellWidth, cellHeight, paddingX, paddingY, boardWidth, boardHeight } =
+    boardDimension;
 
   const legalMoveSet = useMemo(() => {
     const set = new Set<string>();
@@ -57,6 +95,43 @@ export const Board: React.FC<BoardProps> = ({
       px: paddingX + bx * cellWidth,
       py: paddingY + by * cellHeight
     };
+  };
+
+  const handleBoardTouchOrClick = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const rect = container.getBoundingClientRect();
+    let clientX = 0;
+    let clientY = 0;
+
+    if ('touches' in e && e.touches.length > 0) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else if ('clientX' in e) {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    } else {
+      return;
+    }
+
+    const clickX = clientX - rect.left;
+    const clickY = clientY - rect.top;
+
+    const rawX = (clickX - paddingX) / cellWidth;
+    const rawY = (clickY - paddingY) / cellHeight;
+
+    const gridX = Math.round(rawX);
+    const gridY = Math.round(rawY);
+
+    if (gridX >= 0 && gridX <= 8 && gridY >= 0 && gridY <= 9) {
+      const dist = Math.hypot(rawX - gridX, rawY - gridY);
+      if (dist <= 0.6) {
+        const boardX = flipped ? 8 - gridX : gridX;
+        const boardY = flipped ? 9 - gridY : gridY;
+        onSquareClick([boardX, boardY]);
+      }
+    }
   };
 
   const renderGridLines = () => {
@@ -196,8 +271,8 @@ export const Board: React.FC<BoardProps> = ({
 
   const renderStarMarker = (x: number, y: number) => {
     const { px, py } = toBoardCoords(x, y);
-    const d = 4;
-    const len = 9;
+    const d = Math.max(3, cellWidth * 0.08);
+    const len = Math.max(6, cellWidth * 0.16);
 
     const brackets = [];
 
@@ -268,10 +343,12 @@ export const Board: React.FC<BoardProps> = ({
   ];
 
   return (
-    <div className="relative select-none flex items-center justify-center p-2 md:p-5">
+    <div className="relative select-none flex items-center justify-center p-1 sm:p-3 touch-manipulation max-w-full">
       <div
+        ref={containerRef}
+        onClick={handleBoardTouchOrClick}
         style={{ width: `${boardWidth}px`, height: `${boardHeight}px` }}
-        className="relative rounded-2xl shadow-[0_15px_50px_rgba(0,0,0,0.8),inset_0_2px_15px_rgba(255,255,255,0.15)] border-8 border-[#3e2723] bg-gradient-to-br from-[#dfb17b] via-[#cf9e65] to-[#b7844b] overflow-hidden"
+        className="relative rounded-2xl shadow-[0_15px_45px_rgba(0,0,0,0.8),inset_0_2px_15px_rgba(255,255,255,0.15)] border-4 sm:border-8 border-[#3e2723] bg-gradient-to-br from-[#dfb17b] via-[#cf9e65] to-[#b7844b] overflow-hidden cursor-pointer"
       >
         <svg
           width={boardWidth}
@@ -279,13 +356,13 @@ export const Board: React.FC<BoardProps> = ({
           className="absolute inset-0 pointer-events-none"
         >
           <rect
-            x={paddingX - 10}
-            y={paddingY - 10}
-            width={cellWidth * 8 + 20}
-            height={cellHeight * 9 + 20}
+            x={paddingX - 8}
+            y={paddingY - 8}
+            width={cellWidth * 8 + 16}
+            height={cellHeight * 9 + 16}
             fill="none"
             stroke="#78350f"
-            strokeWidth="3"
+            strokeWidth="2.5"
             strokeOpacity="0.8"
           />
 
@@ -300,7 +377,8 @@ export const Board: React.FC<BoardProps> = ({
             dominantBaseline="middle"
             fill="#78350f"
             fillOpacity="0.75"
-            className="font-calligraphy font-black text-2xl tracking-[0.6em]"
+            style={{ fontSize: `${cellWidth * 0.42}px` }}
+            className="font-calligraphy font-black tracking-[0.5em]"
           >
             {flipped ? i18n.zh.riverLower : i18n.zh.riverUpper}
           </text>
@@ -311,7 +389,8 @@ export const Board: React.FC<BoardProps> = ({
             dominantBaseline="middle"
             fill="#78350f"
             fillOpacity="0.75"
-            className="font-calligraphy font-black text-2xl tracking-[0.6em]"
+            style={{ fontSize: `${cellWidth * 0.42}px` }}
+            className="font-calligraphy font-black tracking-[0.5em]"
           >
             {flipped ? i18n.zh.riverUpper : i18n.zh.riverLower}
           </text>
@@ -366,18 +445,31 @@ export const Board: React.FC<BoardProps> = ({
             return (
               <div
                 key={`hint-${x}-${y}`}
-                onClick={() => onSquareClick(pos)}
                 style={{
                   left: `${px}px`,
                   top: `${py}px`,
+                  width: `${cellWidth}px`,
+                  height: `${cellHeight}px`,
                   transform: 'translate(-50%, -50%)'
                 }}
-                className="absolute z-20 cursor-pointer flex items-center justify-center p-2"
+                className="absolute z-20 pointer-events-none flex items-center justify-center"
               >
                 {targetPiece ? (
-                  <div className="w-10 h-10 rounded-full border-2 border-red-500/90 bg-red-500/20 animate-pulse flex items-center justify-center shadow-[0_0_10px_rgba(239,68,68,0.8)]" />
+                  <div
+                    style={{
+                      width: `${cellWidth * 0.88}px`,
+                      height: `${cellHeight * 0.88}px`
+                    }}
+                    className="rounded-full border-2 border-red-500 bg-red-500/30 animate-pulse flex items-center justify-center shadow-[0_0_12px_rgba(239,68,68,0.9)]"
+                  />
                 ) : (
-                  <div className="w-3.5 h-3.5 rounded-full bg-amber-500/80 shadow-[0_0_8px_rgba(245,158,11,0.9)] animate-ping" />
+                  <div
+                    style={{
+                      width: `${Math.max(14, cellWidth * 0.32)}px`,
+                      height: `${Math.max(14, cellHeight * 0.32)}px`
+                    }}
+                    className="rounded-full bg-amber-400 border-2 border-amber-200 shadow-[0_0_10px_rgba(245,158,11,1)]"
+                  />
                 )}
               </div>
             );
@@ -402,7 +494,7 @@ export const Board: React.FC<BoardProps> = ({
                   top: `${py}px`,
                   transform: 'translate(-50%, -50%)'
                 }}
-                className="absolute"
+                className="absolute pointer-events-none"
               >
                 <PieceView
                   piece={piece}
@@ -410,7 +502,6 @@ export const Board: React.FC<BoardProps> = ({
                   isSelected={isSelected}
                   isThreatened={isThreatened}
                   isLastMove={isLast}
-                  onClick={() => onSquareClick([x, y])}
                 />
               </div>
             );
