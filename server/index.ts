@@ -24,6 +24,8 @@ import {
   isCheck,
   isLegalMove
 } from '../src/engine/rules';
+import { getBestAiMove } from '../src/engine/ai';
+import { pikafish, boardToFen } from './engine/pikafish';
 
 const app = express();
 app.use(cors());
@@ -93,6 +95,66 @@ function startRoomTimer(roomId: string) {
 }
 
 io.on('connection', (socket: Socket) => {
+  socket.on('query_engine_status', (callback) => {
+    callback({
+      pikafishAvailable: pikafish.isAvailable()
+    });
+  });
+
+  socket.on('request_ai_move', async (data, callback) => {
+    const { board, turn, engine, level } = data || {};
+    if (!board || !turn) {
+      callback?.({ success: false, error: 'INVALID_REQUEST' });
+      return;
+    }
+
+    if (engine === 'pikafish' && pikafish.isAvailable()) {
+      try {
+        const fen = boardToFen(board, turn);
+        let depth = 8;
+        let movetime = 600;
+
+        if (level === 'easy') {
+          depth = 3;
+          movetime = 150;
+        } else if (level === 'medium') {
+          depth = 6;
+          movetime = 350;
+        } else if (level === 'hard') {
+          depth = 10;
+          movetime = 800;
+        } else if (level === 'master') {
+          depth = 14;
+          movetime = 1500;
+        }
+
+        const res = await pikafish.search(fen, { depth, movetime });
+        callback?.({
+          success: true,
+          from: res.from,
+          to: res.to,
+          engine: 'pikafish',
+          bestmove: res.bestmove
+        });
+        return;
+      } catch (err) {
+        console.error('Pikafish search failed, fallback to heuristic AI', err);
+      }
+    }
+
+    const fallbackMove = getBestAiMove(board, turn);
+    if (fallbackMove) {
+      callback?.({
+        success: true,
+        from: fallbackMove.from,
+        to: fallbackMove.to,
+        engine: 'builtin'
+      });
+    } else {
+      callback?.({ success: false, error: 'NO_LEGAL_MOVES' });
+    }
+  });
+
   socket.on('create_room', (data, callback) => {
     const { preferredColor, timeLimit, playerName } = data || {};
     const roomId = generateRoomId();

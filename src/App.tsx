@@ -61,6 +61,11 @@ export const App: React.FC = () => {
   const [initialRoomParam, setInitialRoomParam] = useState<string | undefined>(
     undefined
   );
+  const [aiEngine, setAiEngine] = useState<'pikafish' | 'builtin'>('pikafish');
+  const [aiLevel, setAiLevel] = useState<'easy' | 'medium' | 'hard' | 'master'>(
+    'medium'
+  );
+  const [isAiThinking, setIsAiThinking] = useState(false);
 
   const aiThinkingRef = useRef(false);
 
@@ -208,8 +213,14 @@ export const App: React.FC = () => {
     });
   };
 
-  const handleStartAi = (color: PieceColor) => {
+  const handleStartAi = (
+    color: PieceColor,
+    engine: 'pikafish' | 'builtin' = 'pikafish',
+    level: 'easy' | 'medium' | 'hard' | 'master' = 'medium'
+  ) => {
     setGameMode('ai');
+    setAiEngine(engine);
+    setAiLevel(level);
     setPlayerColor(color);
     setFlipped(color === 'black');
     setBoard(createInitialBoard());
@@ -219,11 +230,25 @@ export const App: React.FC = () => {
     setResult(null);
     setInLobby(false);
 
+    const levelStr =
+      level === 'master'
+        ? i18n.zh.levelMaster
+        : level === 'hard'
+        ? i18n.zh.levelHard
+        : level === 'medium'
+        ? i18n.zh.levelMedium
+        : i18n.zh.levelEasy;
+
+    const engineName =
+      engine === 'pikafish'
+        ? `皮卡鱼 · Pikafish (${levelStr})`
+        : i18n.zh.engineBuiltin;
+
     setPlayers({
-      p1: { id: 'p1', name: '玩家', color, isReady: true, timeLeft: 600 },
+      p1: { id: 'p1', name: '少侠 (我)', color, isReady: true, timeLeft: 600 },
       ai: {
         id: 'ai',
-        name: 'AI 象棋大师',
+        name: engineName,
         color: color === 'red' ? 'black' : 'red',
         isReady: true,
         timeLeft: 600
@@ -254,16 +279,39 @@ export const App: React.FC = () => {
     const aiColor: PieceColor = playerColor === 'red' ? 'black' : 'red';
     if (turn === aiColor && !aiThinkingRef.current) {
       aiThinkingRef.current = true;
-      const timer = setTimeout(() => {
-        const bestMove = getBestAiMove(board, aiColor);
-        if (bestMove) {
-          executeLocalMove(bestMove.from, bestMove.to);
-        }
-        aiThinkingRef.current = false;
-      }, 650);
-      return () => clearTimeout(timer);
+      setIsAiThinking(true);
+
+      if (aiEngine === 'pikafish') {
+        const socket = getSocket();
+        socket.emit(
+          'request_ai_move',
+          { board, turn: aiColor, engine: 'pikafish', level: aiLevel },
+          (res: any) => {
+            if (res && res.success && res.from && res.to) {
+              executeLocalMove(res.from, res.to);
+            } else {
+              const fallback = getBestAiMove(board, aiColor);
+              if (fallback) {
+                executeLocalMove(fallback.from, fallback.to);
+              }
+            }
+            aiThinkingRef.current = false;
+            setIsAiThinking(false);
+          }
+        );
+      } else {
+        const timer = setTimeout(() => {
+          const bestMove = getBestAiMove(board, aiColor);
+          if (bestMove) {
+            executeLocalMove(bestMove.from, bestMove.to);
+          }
+          aiThinkingRef.current = false;
+          setIsAiThinking(false);
+        }, 500);
+        return () => clearTimeout(timer);
+      }
     }
-  }, [gameMode, inLobby, turn, board, playerColor, result]);
+  }, [gameMode, inLobby, turn, board, playerColor, result, aiEngine, aiLevel]);
 
   const executeLocalMove = (from: Position, to: Position) => {
     const piece = board[from[1]][from[0]];

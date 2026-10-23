@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { PieceColor } from '../types/chess';
 import { i18n } from '../i18n';
-import { Users, Bot, Gamepad2, Copy, Check, ArrowRight } from 'lucide-react';
+import { Users, Bot, Gamepad2, ArrowRight, Sparkles, Cpu } from 'lucide-react';
 
 interface LobbyModalProps {
   onCreateRoom: (options: {
@@ -10,7 +10,11 @@ interface LobbyModalProps {
     playerName: string;
   }) => void;
   onJoinRoom: (roomId: string, playerName: string) => void;
-  onStartAi: (playerColor: PieceColor) => void;
+  onStartAi: (
+    playerColor: PieceColor,
+    engine: 'pikafish' | 'builtin',
+    level: 'easy' | 'medium' | 'hard' | 'master'
+  ) => void;
   onStartLocal: () => void;
   initialRoomCode?: string;
 }
@@ -29,6 +33,8 @@ export const LobbyModal: React.FC<LobbyModalProps> = ({
   );
   const [timeLimit, setTimeLimit] = useState<number>(600);
   const [joinCode, setJoinCode] = useState(initialRoomCode || '');
+  const [aiEngine, setAiEngine] = useState<'pikafish' | 'builtin'>('pikafish');
+  const [aiLevel, setAiLevel] = useState<'easy' | 'medium' | 'hard' | 'master'>('medium');
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
@@ -196,29 +202,107 @@ export const LobbyModal: React.FC<LobbyModalProps> = ({
 
         {tab === 'ai' && (
           <div className="p-4 rounded-2xl bg-stone-950 border border-stone-800 space-y-4">
-            <h3 className="text-sm font-bold text-amber-300 font-serif-sc">
-              人机单机练习
-            </h3>
-            <p className="text-xs text-stone-400 font-serif-sc">
-              无需联网即可即刻体验！尽情演练「卧槽马」、「重炮」等杀棋特效！
-            </p>
-            <div className="grid grid-cols-2 gap-3 pt-2">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-amber-300 font-serif-sc flex items-center gap-1.5">
+                <Cpu className="w-4 h-4 text-amber-400" />
+                {i18n.zh.engineSelect}
+              </h3>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
-                onClick={() => onStartAi('red')}
-                className="py-3 px-4 rounded-xl bg-red-950/70 border border-red-600/70 text-red-200 hover:bg-red-900/80 font-serif-sc font-bold transition-transform active:scale-95 cursor-pointer flex flex-col items-center gap-1"
+                onClick={() => setAiEngine('pikafish')}
+                className={`p-3 rounded-xl border text-left font-serif-sc transition-all cursor-pointer ${
+                  aiEngine === 'pikafish'
+                    ? 'border-amber-500 bg-amber-950/50 shadow-[0_0_15px_rgba(245,158,11,0.25)]'
+                    : 'border-stone-800 bg-stone-900 text-stone-400 hover:text-stone-200'
+                }`}
               >
-                <span>执红先手</span>
-                <span className="text-[10px] text-red-400">主攻攻势</span>
+                <div className="flex items-center gap-1.5 text-xs font-bold text-amber-300">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                  {i18n.zh.enginePikafish}
+                </div>
+                <div className="text-[10px] text-stone-400 mt-1 line-clamp-1">
+                  {i18n.zh.enginePikafishDesc}
+                </div>
               </button>
+
               <button
                 type="button"
-                onClick={() => onStartAi('black')}
-                className="py-3 px-4 rounded-xl bg-stone-800/80 border border-stone-600/70 text-stone-200 hover:bg-stone-700 font-serif-sc font-bold transition-transform active:scale-95 cursor-pointer flex flex-col items-center gap-1"
+                onClick={() => setAiEngine('builtin')}
+                className={`p-3 rounded-xl border text-left font-serif-sc transition-all cursor-pointer ${
+                  aiEngine === 'builtin'
+                    ? 'border-amber-500 bg-amber-950/50 shadow-[0_0_15px_rgba(245,158,11,0.25)]'
+                    : 'border-stone-800 bg-stone-900 text-stone-400 hover:text-stone-200'
+                }`}
               >
-                <span>执黑后手</span>
-                <span className="text-[10px] text-stone-400">后发制人</span>
+                <div className="flex items-center gap-1.5 text-xs font-bold text-stone-300">
+                  <Bot className="w-3.5 h-3.5" />
+                  {i18n.zh.engineBuiltin}
+                </div>
+                <div className="text-[10px] text-stone-400 mt-1 line-clamp-1">
+                  {i18n.zh.engineBuiltinDesc}
+                </div>
               </button>
+            </div>
+
+            {aiEngine === 'pikafish' && (
+              <div>
+                <label className="block text-xs text-stone-400 font-serif-sc mb-1.5">
+                  {i18n.zh.aiLevel}
+                </label>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {(['easy', 'medium', 'hard', 'master'] as const).map((lvl) => {
+                    const label =
+                      lvl === 'easy'
+                        ? i18n.zh.levelEasy
+                        : lvl === 'medium'
+                        ? i18n.zh.levelMedium
+                        : lvl === 'hard'
+                        ? i18n.zh.levelHard
+                        : i18n.zh.levelMaster;
+                    return (
+                      <button
+                        key={lvl}
+                        type="button"
+                        onClick={() => setAiLevel(lvl)}
+                        className={`py-1.5 px-2 rounded-lg border text-[11px] font-serif-sc transition-colors cursor-pointer ${
+                          aiLevel === lvl
+                            ? 'border-amber-500 bg-amber-500/20 text-amber-300 font-bold'
+                            : 'border-stone-800 bg-stone-900 text-stone-400 hover:text-stone-200'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div className="border-t border-stone-800/80 pt-3">
+              <label className="block text-xs text-stone-400 font-serif-sc mb-2">
+                选择阵营开始对弈
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => onStartAi('red', aiEngine, aiLevel)}
+                  className="py-3 px-4 rounded-xl bg-red-950/70 border border-red-600/70 text-red-200 hover:bg-red-900/80 font-serif-sc font-bold transition-transform active:scale-95 cursor-pointer flex flex-col items-center gap-0.5"
+                >
+                  <span>执红先手</span>
+                  <span className="text-[10px] text-red-400">红方出招</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onStartAi('black', aiEngine, aiLevel)}
+                  className="py-3 px-4 rounded-xl bg-stone-800/80 border border-stone-600/70 text-stone-200 hover:bg-stone-700 font-serif-sc font-bold transition-transform active:scale-95 cursor-pointer flex flex-col items-center gap-0.5"
+                >
+                  <span>执黑后手</span>
+                  <span className="text-[10px] text-stone-400">后发制人</span>
+                </button>
+              </div>
             </div>
           </div>
         )}
