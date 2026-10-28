@@ -1,463 +1,397 @@
 import express from 'express';
-import http from 'http';
-import path from 'path';
-import fs from 'fs';
-import { Server, Socket } from 'socket.io';
-import cors from 'cors';
-import {
-  BoardState,
+import { createServer } from 'node:http';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { Server, type Socket } from 'socket.io';
+import type {
   ChatMessage,
   GameResult,
-  KillPatternType,
-  Move,
-  PieceColor,
-  Player,
+  OnlineActionResult,
+  OnlinePlayer,
+  OnlineRoom,
   Position,
-  RoomState
+  PublicOnlineRoom
 } from '../src/types/chess';
 import {
-  cloneBoard,
-  createInitialBoard,
-  detectKillPattern,
-  findGeneral,
-  hasAnyLegalMove,
-  isCheck,
-  isLegalMove
-} from '../src/engine/rules';
-import { getBestAiMove } from '../src/engine/ai';
-import { pikafish, boardToFen } from './engine/pikafish';
+  applyMoveToSnapshot,
+  createGameSnapshot,
+  endByAgreement,
+  endByResignation
+} from '../src/engine/game';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
-app.use(cors());
+const server = createServer(app);
+const io = new Server(server, {
+  cors: { origin: '*', methods: ['GET', 'POST'] },
+  maxHttpBufferSize: 2e6
+});
+const rooms = new Map<string, OnlineRoom>();
+const timers = new Map<string, NodeJS.Timeout>();
+const pendingUndo = new Map<string, string>();
+const pendingDraw = new Map<string, string>();
+const disconnectTimestamps = new Map<string, number>();
+
 app.use(express.json());
 
-const server = http.createServer(app);
-const io = new Server(server, {
-  cors: {
-    origin: '*',
-    methods: ['GET', 'POST']
-  }
-});
-
-const rooms: Record<string, RoomState> = {};
-const roomTimers: Record<string, NodeJS.Timeout> = {};
-
-function generateRoomId(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+function createRoomId(): string {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let id = '';
-  for (let i = 0; i < 6; i++) {
-    id += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return rooms[id] ? generateRoomId() : id;
+  do {
+    id = Array.from({ length: 6 }, () => alphabet[Math.floor(Math.random() * alphabet.length)]).join('');
+  } while (rooms.has(id));
+  return id;
 }
 
-function stopRoomTimer(roomId: string) {
-  if (roomTimers[roomId]) {
-    clearInterval(roomTimers[roomId]);
-    delete roomTimers[roomId];
+function publicRoom(room: OnlineRoom): PublicOnlineRoom {
+  return {
+    id: room.id,
+    players: room.players.map(({ token: _token, ...player }) => player),
+    spectatorCount: room.spectatorCount,
+    status: room.status,
+    game: room.game,
+    timeLimit: room.timeLimit,
+    createdAt: room.createdAt,
+    hostColor: room.players.find((player) => player.token === room.hostToken)?.color ?? 'red',
+    rematchVotes: room.rematchVotes
+  };
+}
+
+function emitRoom(room: OnlineRoom): void {
+  io.to(room.id).emit('room_updated', publicRoom(room));
+}
+
+function findPlayer(room: OnlineRoom, token: string): OnlinePlayer | undefined {
+  return room.players.find((player) => player.token === token);
+}
+
+function syncSocketToRoom(socket: Socket, room: OnlineRoom, token?: string): void {
+  socket.join(room.id);
+  const player = token ? findPlayer(room, token) : undefined;
+  if (player) {
+    player.socketId = socket.id;
+    player.connected = true;
+    disconnectTimestamps.delete(`${room.id}:${player.token}`);
   }
 }
 
-function startRoomTimer(roomId: string) {
-  stopRoomTimer(roomId);
-  const room = rooms[roomId];
-  if (!room || room.timeLimit <= 0 || room.status !== 'playing') return;
+function finishRoom(room: OnlineRoom, result: GameResult): void {
+  room.status = 'ended';
+  room.game.status = 'ended';
+  room.game.result = result;
+  const timer = timers.get(room.id);
+  if (timer) clearInterval(timer);
+  timers.delete(room.id);
+  emitRoom(room);
+  io.to(room.id).emit('game_over', result);
+}
 
-  roomTimers[roomId] = setInterval(() => {
-    const r = rooms[roomId];
-    if (!r || r.status !== 'playing') {
-      stopRoomTimer(roomId);
-      return;
-    }
-
-    const currentTurn = r.turn;
-    const playerEntry = Object.values(r.players).find(
-      (p) => p.color === currentTurn
-    );
-
-    if (playerEntry) {
-      playerEntry.timeLeft -= 1;
-      if (playerEntry.timeLeft <= 0) {
-        playerEntry.timeLeft = 0;
-        r.status = 'ended';
-        r.result = {
-          winner: currentTurn === 'red' ? 'black' : 'red',
-          reason: 'timeout'
-        };
-        stopRoomTimer(roomId);
-        io.to(roomId).emit('game_over', r.result);
-      }
-      io.to(roomId).emit('timer_tick', {
-        players: r.players
-      });
-    }
+function startClock(room: OnlineRoom): void {
+  if (room.timeLimit <= 0 || timers.has(room.id)) return;
+  const timer = setInterval(() => {
+    if (room.status !== 'playing') return;
+    const active = room.players.find((player) => player.color === room.game.turn);
+    if (!active) return;
+    active.timeLeft = Math.max(0, active.timeLeft - 1);
+    io.to(room.id).emit('clock_tick', { players: publicRoom(room).players, turn: room.game.turn });
+    if (active.timeLeft === 0) finishRoom(room, { winner: active.color === 'red' ? 'black' : 'red', reason: 'timeout' });
   }, 1000);
+  timers.set(room.id, timer);
 }
 
-io.on('connection', (socket: Socket) => {
-  socket.on('query_engine_status', (callback) => {
-    callback({
-      pikafishAvailable: pikafish.isAvailable()
-    });
-  });
+function roomForSocket(socket: Socket): OnlineRoom | undefined {
+  for (const room of rooms.values()) {
+    if (room.players.some((player) => player.socketId === socket.id)) return room;
+  }
+  return undefined;
+}
 
-  socket.on('request_ai_move', async (data, callback) => {
-    const { board, turn, engine, level } = data || {};
-    if (!board || !turn) {
-      callback?.({ success: false, error: 'INVALID_REQUEST' });
+function beginPlaying(room: OnlineRoom): void {
+  if (room.players.length !== 2) return;
+  room.status = 'playing';
+  room.game = createGameSnapshot();
+  room.players.forEach((player) => {
+    player.timeLeft = room.timeLimit;
+  });
+  startClock(room);
+  emitRoom(room);
+}
+
+io.on('connection', (socket) => {
+  socket.on('create_room', (data, callback: (result: OnlineActionResult) => void) => {
+    const { name, color, timeLimit, token } = data ?? {};
+    if (!token || typeof token !== 'string') {
+      callback({ success: false, error: 'INVALID_TOKEN' });
       return;
     }
-
-    if (engine === 'pikafish' && pikafish.isAvailable()) {
-      try {
-        const fen = boardToFen(board, turn);
-        let depth = 10;
-        let movetime = 800;
-
-        if (level === 'easy') {
-          depth = 6;
-          movetime = 400;
-        } else if (level === 'medium') {
-          depth = 10;
-          movetime = 800;
-        } else if (level === 'hard') {
-          depth = 14;
-          movetime = 1500;
-        } else if (level === 'master') {
-          depth = 18;
-          movetime = 2500;
-        }
-
-        const res = await pikafish.search(fen, { depth, movetime });
-        callback?.({
-          success: true,
-          from: res.from,
-          to: res.to,
-          engine: 'pikafish',
-          bestmove: res.bestmove
-        });
-        return;
-      } catch (err) {
-        console.error('Pikafish search failed, fallback to minimax AI', err);
-      }
-    }
-
-    const fallbackMove = getBestAiMove(board, turn);
-    if (fallbackMove) {
-      callback?.({
-        success: true,
-        from: fallbackMove.from,
-        to: fallbackMove.to,
-        engine: 'builtin'
-      });
-    } else {
-      callback?.({ success: false, error: 'NO_LEGAL_MOVES' });
-    }
-  });
-
-  socket.on('create_room', (data, callback) => {
-    const { preferredColor, timeLimit, playerName } = data || {};
-    const roomId = generateRoomId();
-
-    let assignedColor: PieceColor = 'red';
-    if (preferredColor === 'black') {
-      assignedColor = 'black';
-    } else if (preferredColor === 'random') {
-      assignedColor = Math.random() > 0.5 ? 'red' : 'black';
-    }
-
-    const limit = typeof timeLimit === 'number' ? timeLimit : 600;
-
-    const hostPlayer: Player = {
-      id: socket.id,
-      name: playerName || 'Player 1',
-      color: assignedColor,
-      isReady: true,
-      timeLeft: limit
+    const roomId = createRoomId();
+    const player: OnlinePlayer = {
+      token,
+      socketId: socket.id,
+      name: typeof name === 'string' && name.trim() ? name.trim().slice(0, 24) : 'Player 1',
+      color: color === 'black' ? 'black' : 'red',
+      connected: true,
+      timeLeft: Number(timeLimit) || 0
     };
-
-    const newRoom: RoomState = {
+    const room: OnlineRoom = {
       id: roomId,
-      hostId: socket.id,
-      players: {
-        [socket.id]: hostPlayer
-      },
-      spectators: [],
+      hostToken: token,
+      players: [player],
+      spectatorCount: 0,
       status: 'waiting',
-      turn: 'red',
-      board: createInitialBoard(),
-      history: [],
-      timeLimit: limit
+      game: createGameSnapshot(),
+      timeLimit: Math.max(0, Math.min(3600, Number(timeLimit) || 0)),
+      createdAt: Date.now(),
+      rematchVotes: []
     };
-
-    rooms[roomId] = newRoom;
-    socket.join(roomId);
-
-    callback({
-      success: true,
-      roomId,
-      room: newRoom,
-      color: assignedColor
-    });
+    rooms.set(roomId, room);
+    syncSocketToRoom(socket, room, token);
+    callback({ success: true, roomId, token, role: 'player', room: publicRoom(room) });
   });
 
-  socket.on('join_room', (data, callback) => {
-    const { roomId, playerName } = data || {};
-    const room = rooms[roomId];
-
+  socket.on('join_room', (data, callback: (result: OnlineActionResult) => void) => {
+    const code = typeof data?.roomId === 'string' ? data.roomId.trim().toUpperCase() : '';
+    const room = rooms.get(code);
     if (!room) {
       callback({ success: false, error: 'ROOM_NOT_FOUND' });
       return;
     }
-
-    const playerKeys = Object.keys(room.players);
-    let assignedColor: PieceColor | undefined = undefined;
-
-    if (room.players[socket.id]) {
-      assignedColor = room.players[socket.id].color;
-    } else if (playerKeys.length < 2) {
-      const existingPlayer = room.players[playerKeys[0]];
-      assignedColor = existingPlayer.color === 'red' ? 'black' : 'red';
-      room.players[socket.id] = {
-        id: socket.id,
-        name: playerName || `Player ${playerKeys.length + 1}`,
-        color: assignedColor,
-        isReady: true,
-        timeLeft: room.timeLimit
-      };
-      if (room.status === 'waiting') {
-        room.status = 'playing';
-        startRoomTimer(roomId);
-      }
-    } else {
-      if (!room.spectators.includes(socket.id)) {
-        room.spectators.push(socket.id);
-      }
+    const token = typeof data?.token === 'string' ? data.token : '';
+    const existing = token ? findPlayer(room, token) : undefined;
+    if (existing) {
+      syncSocketToRoom(socket, room, token);
+      existing.name = typeof data?.name === 'string' && data.name.trim() ? data.name.trim().slice(0, 24) : existing.name;
+      callback({ success: true, roomId: room.id, token, role: 'player', room: publicRoom(room) });
+      emitRoom(room);
+      return;
     }
-
-    socket.join(roomId);
-
-    io.to(roomId).emit('room_updated', room);
-    callback({
-      success: true,
-      roomId,
-      room,
-      color: assignedColor
-    });
+    if (room.players.length >= 2) {
+      syncSocketToRoom(socket, room);
+      room.spectatorCount += 1;
+      socket.data.spectatorRoom = room.id;
+      callback({ success: true, roomId: room.id, role: 'spectator', room: publicRoom(room) });
+      emitRoom(room);
+      return;
+    }
+    if (!token) {
+      callback({ success: false, error: 'INVALID_TOKEN' });
+      return;
+    }
+    const hostColor = room.players[0]?.color ?? 'red';
+    const player: OnlinePlayer = {
+      token,
+      socketId: socket.id,
+      name: typeof data?.name === 'string' && data.name.trim() ? data.name.trim().slice(0, 24) : 'Player 2',
+      color: hostColor === 'red' ? 'black' : 'red',
+      connected: true,
+      timeLeft: room.timeLimit
+    };
+    room.players.push(player);
+    syncSocketToRoom(socket, room, token);
+    beginPlaying(room);
+    callback({ success: true, roomId: room.id, token, role: 'player', room: publicRoom(room) });
   });
 
-  socket.on('make_move', (data, callback) => {
-    const { roomId, from, to } = data;
-    const room = rooms[roomId];
+  socket.on('sync_room', (data, callback: (result: OnlineActionResult) => void) => {
+    const room = rooms.get(String(data?.roomId ?? '').toUpperCase());
+    if (!room) {
+      callback({ success: false, error: 'ROOM_NOT_FOUND' });
+      return;
+    }
+    const token = typeof data?.token === 'string' ? data.token : '';
+    const player = token ? findPlayer(room, token) : undefined;
+    if (player) {
+      syncSocketToRoom(socket, room, token);
+      callback({ success: true, roomId: room.id, token, role: 'player', room: publicRoom(room) });
+      emitRoom(room);
+    } else {
+      syncSocketToRoom(socket, room);
+      callback({ success: true, roomId: room.id, role: 'spectator', room: publicRoom(room) });
+    }
+  });
 
+  socket.on('move', (data, callback: (result: { success: boolean; error?: string }) => void) => {
+    const room = rooms.get(String(data?.roomId ?? '').toUpperCase());
     if (!room || room.status !== 'playing') {
-      callback?.({ success: false, error: 'INVALID_GAME_STATE' });
+      callback({ success: false, error: 'ROOM_NOT_PLAYING' });
       return;
     }
-
-    const player = room.players[socket.id];
-    if (!player || player.color !== room.turn) {
-      callback?.({ success: false, error: 'NOT_YOUR_TURN' });
+    const player = findPlayer(room, String(data?.token ?? ''));
+    const from = data?.from as Position;
+    const to = data?.to as Position;
+    if (!player || player.socketId !== socket.id || player.color !== room.game.turn) {
+      callback({ success: false, error: 'NOT_YOUR_TURN' });
       return;
     }
+    try {
+      const result = applyMoveToSnapshot(room.game, from, to);
+      room.game = result.snapshot;
+      if (room.game.status === 'ended') {
+        room.status = 'ended';
+        const timer = timers.get(room.id);
+        if (timer) clearInterval(timer);
+        timers.delete(room.id);
+      }
+      callback({ success: true });
+      io.to(room.id).emit('game_moved', { room: publicRoom(room), move: result.move });
+      if (room.game.status === 'ended' && room.game.result) io.to(room.id).emit('game_over', room.game.result);
+    } catch (error) {
+      callback({ success: false, error: error instanceof Error ? error.message : 'ILLEGAL_MOVE' });
+    }
+  });
 
-    const piece = room.board[from[1]][from[0]];
-    if (!piece || piece.color !== room.turn) {
-      callback?.({ success: false, error: 'INVALID_PIECE' });
+  socket.on('request_undo', (data) => {
+    const room = rooms.get(String(data?.roomId ?? '').toUpperCase());
+    if (!room || room.status !== 'playing') return;
+    const player = findPlayer(room, String(data?.token ?? ''));
+    if (!player) return;
+    pendingUndo.set(room.id, player.token);
+    socket.to(room.id).emit('undo_requested', { fromToken: player.token, color: player.color });
+  });
+
+  socket.on('respond_undo', (data) => {
+    const room = rooms.get(String(data?.roomId ?? '').toUpperCase());
+    if (!room || room.status !== 'playing') return;
+    const requesterToken = pendingUndo.get(room.id);
+    if (!requesterToken || requesterToken === data?.token) return;
+    pendingUndo.delete(room.id);
+    if (!data?.accept) {
+      io.to(room.id).emit('undo_declined');
       return;
     }
+    if (room.game.history.length === 0) return;
+    const history = room.game.history.slice(0, -1);
+    const board = createGameSnapshot();
+    let rebuilt = board;
+    for (const move of history) rebuilt = applyMoveToSnapshot(rebuilt, move.from, move.to).snapshot;
+    room.game = rebuilt;
+    room.status = 'playing';
+    emitRoom(room);
+    io.to(room.id).emit('undo_applied');
+  });
 
-    if (!isLegalMove(room.board, from, to, room.turn)) {
-      callback?.({ success: false, error: 'ILLEGAL_MOVE' });
-      return;
+  socket.on('request_draw', (data) => {
+    const room = rooms.get(String(data?.roomId ?? '').toUpperCase());
+    if (!room || room.status !== 'playing') return;
+    const player = findPlayer(room, String(data?.token ?? ''));
+    if (!player) return;
+    pendingDraw.set(room.id, player.token);
+    socket.to(room.id).emit('draw_requested', { fromToken: player.token, color: player.color });
+  });
+
+  socket.on('respond_draw', (data) => {
+    const room = rooms.get(String(data?.roomId ?? '').toUpperCase());
+    if (!room || room.status !== 'playing') return;
+    const requesterToken = pendingDraw.get(room.id);
+    if (!requesterToken || requesterToken === data?.token) return;
+    pendingDraw.delete(room.id);
+    if (data?.accept) {
+      room.game = endByAgreement(room.game);
+      finishRoom(room, room.game.result!);
+    } else {
+      io.to(room.id).emit('draw_declined');
     }
+  });
 
-    const prevBoard = cloneBoard(room.board);
-    const captured = room.board[to[1]][to[0]] || undefined;
+  socket.on('resign', (data) => {
+    const room = rooms.get(String(data?.roomId ?? '').toUpperCase());
+    if (!room) return;
+    const player = findPlayer(room, String(data?.token ?? ''));
+    if (!player || room.status === 'ended') return;
+    room.game = endByResignation(room.game, player.color);
+    finishRoom(room, room.game.result!);
+  });
 
-    room.board[to[1]][to[0]] = piece;
-    room.board[from[1]][from[0]] = null;
+  socket.on('request_rematch', (data) => {
+    const room = rooms.get(String(data?.roomId ?? '').toUpperCase());
+    if (!room) return;
+    const player = findPlayer(room, String(data?.token ?? ''));
+    if (!player) return;
+    if (!room.rematchVotes.includes(player.color)) room.rematchVotes.push(player.color);
+    if (room.rematchVotes.length === 2) {
+      room.rematchVotes = [];
+      beginPlaying(room);
+    } else {
+      emitRoom(room);
+    }
+  });
 
-    const nextTurn: PieceColor = room.turn === 'red' ? 'black' : 'red';
-    const enemyInCheck = isCheck(room.board, nextTurn);
-    const enemyHasMoves = hasAnyLegalMove(room.board, nextTurn);
-    const enemyCheckmated = enemyInCheck && !enemyHasMoves;
-    const enemyStalemated = !enemyInCheck && !enemyHasMoves;
-
-    const move: Move = {
-      from,
-      to,
-      piece,
-      captured,
-      isCheck: enemyInCheck,
-      isCheckmate: enemyCheckmated
-    };
-
-    const pattern: KillPatternType = detectKillPattern(
-      prevBoard,
-      room.board,
-      move,
-      enemyInCheck,
-      enemyCheckmated
-    );
-
-    move.killPattern = pattern;
-    room.history.push(move);
-    room.turn = nextTurn;
-
-    room.activeEffect = {
-      type: pattern,
-      from,
-      to,
+  socket.on('send_chat', (data) => {
+    const room = rooms.get(String(data?.roomId ?? '').toUpperCase());
+    if (!room) return;
+    const player = findPlayer(room, String(data?.token ?? ''));
+    const text = typeof data?.text === 'string' ? data.text.trim().slice(0, 120) : '';
+    if (!text) return;
+    const message: ChatMessage = {
+      id: crypto.randomUUID(),
+      senderId: player?.token ?? socket.id,
+      senderName: player?.name ?? 'Spectator',
+      text,
       timestamp: Date.now()
     };
-
-    if (enemyCheckmated || enemyStalemated) {
-      room.status = 'ended';
-      room.result = {
-        winner: player.color,
-        reason: enemyCheckmated ? 'checkmate' : 'stalemate',
-        pattern
-      };
-      stopRoomTimer(roomId);
-    }
-
-    io.to(roomId).emit('game_moved', {
-      room,
-      move,
-      effect: room.activeEffect
-    });
-
-    callback?.({ success: true });
+    io.to(room.id).emit('chat_message', message);
   });
 
-  socket.on('offer_draw', ({ roomId }) => {
-    socket.to(roomId).emit('draw_offered', { fromId: socket.id });
-  });
-
-  socket.on('respond_draw', ({ roomId, accept }) => {
-    const room = rooms[roomId];
+  socket.on('leave_room', (data) => {
+    const room = rooms.get(String(data?.roomId ?? '').toUpperCase());
     if (!room) return;
-
-    if (accept) {
-      room.status = 'ended';
-      room.result = {
-        winner: 'draw',
-        reason: 'agreement'
-      };
-      stopRoomTimer(roomId);
-      io.to(roomId).emit('game_over', room.result);
-      io.to(roomId).emit('room_updated', room);
-    } else {
-      socket.to(roomId).emit('draw_declined');
+    const player = findPlayer(room, String(data?.token ?? ''));
+    if (player) {
+      player.connected = false;
+      socket.leave(room.id);
+      emitRoom(room);
+    } else if (socket.data.spectatorRoom === room.id) {
+      socket.data.spectatorRoom = undefined;
+      room.spectatorCount = Math.max(0, room.spectatorCount - 1);
+      socket.leave(room.id);
+      emitRoom(room);
     }
-  });
-
-  socket.on('request_undo', ({ roomId }) => {
-    socket.to(roomId).emit('undo_requested', { fromId: socket.id });
-  });
-
-  socket.on('respond_undo', ({ roomId, accept }) => {
-    const room = rooms[roomId];
-    if (!room || room.status !== 'playing') return;
-
-    if (accept && room.history.length > 0) {
-      const lastMove = room.history.pop()!;
-      room.board[lastMove.from[1]][lastMove.from[0]] = lastMove.piece;
-      room.board[lastMove.to[1]][lastMove.to[0]] = lastMove.captured || null;
-      room.turn = lastMove.piece.color;
-      delete room.activeEffect;
-
-      io.to(roomId).emit('room_updated', room);
-      io.to(roomId).emit('undo_applied');
-    } else {
-      socket.to(roomId).emit('undo_declined');
-    }
-  });
-
-  socket.on('resign', ({ roomId }) => {
-    const room = rooms[roomId];
-    if (!room || room.status !== 'playing') return;
-
-    const player = room.players[socket.id];
-    if (!player || !player.color) return;
-
-    room.status = 'ended';
-    room.result = {
-      winner: player.color === 'red' ? 'black' : 'red',
-      reason: 'surrender'
-    };
-    stopRoomTimer(roomId);
-    io.to(roomId).emit('game_over', room.result);
-    io.to(roomId).emit('room_updated', room);
-  });
-
-  socket.on('rematch', ({ roomId }) => {
-    const room = rooms[roomId];
-    if (!room) return;
-
-    room.board = createInitialBoard();
-    room.history = [];
-    room.turn = 'red';
-    room.status = 'playing';
-    delete room.result;
-    delete room.activeEffect;
-
-    Object.values(room.players).forEach((p) => {
-      p.timeLeft = room.timeLimit;
-    });
-
-    startRoomTimer(roomId);
-    io.to(roomId).emit('room_updated', room);
-  });
-
-  socket.on('send_chat', ({ roomId, text, isPreset }) => {
-    const room = rooms[roomId];
-    if (!room) return;
-
-    const sender = room.players[socket.id];
-    const message: ChatMessage = {
-      id: Math.random().toString(36).substring(2, 9),
-      senderId: socket.id,
-      senderName: sender?.name || 'Spectator',
-      text,
-      timestamp: Date.now(),
-      isPreset
-    };
-
-    io.to(roomId).emit('chat_message', message);
   });
 
   socket.on('disconnect', () => {
-    Object.entries(rooms).forEach(([roomId, room]) => {
-      if (room.players[socket.id]) {
-        delete room.players[socket.id];
-        if (Object.keys(room.players).length === 0) {
-          stopRoomTimer(roomId);
-          delete rooms[roomId];
-        } else {
-          io.to(roomId).emit('room_updated', room);
-        }
-      } else {
-        const specIdx = room.spectators.indexOf(socket.id);
-        if (specIdx !== -1) {
-          room.spectators.splice(specIdx, 1);
-          io.to(roomId).emit('room_updated', room);
-        }
+    const room = roomForSocket(socket);
+    if (room) {
+      const player = room.players.find((candidate) => candidate.socketId === socket.id);
+      if (player) {
+        player.connected = false;
+        disconnectTimestamps.set(`${room.id}:${player.token}`, Date.now());
+        emitRoom(room);
       }
-    });
+    }
+    for (const room of rooms.values()) {
+      if (socket.data.spectatorRoom === room.id) {
+        room.spectatorCount = Math.max(0, room.spectatorCount - 1);
+        emitRoom(room);
+        break;
+      }
+    }
   });
 });
 
-const distPath = path.resolve(process.cwd(), 'dist');
-if (fs.existsSync(distPath)) {
-  app.use(express.static(distPath));
-  app.use((req, res) => {
-    res.sendFile(path.join(distPath, 'index.html'));
-  });
-}
+setInterval(() => {
+  const now = Date.now();
+  for (const [roomId, room] of rooms) {
+    const age = now - room.createdAt;
+    const everyoneAway = room.players.every((player) => !player.connected);
+    if (age > 6 * 60 * 60 * 1000 || (everyoneAway && age > 20 * 60 * 1000)) {
+      const timer = timers.get(roomId);
+      if (timer) clearInterval(timer);
+      timers.delete(roomId);
+      rooms.delete(roomId);
+    }
+  }
+  for (const [key, timestamp] of disconnectTimestamps) {
+    if (now - timestamp > 30 * 60 * 1000) disconnectTimestamps.delete(key);
+  }
+}, 60_000);
 
-const PORT = process.env.PORT || 3001;
-server.listen(PORT, () => {
-  console.log(`Server listening on port ${PORT}`);
+const distPath = path.resolve(__dirname, '../dist');
+app.use(express.static(distPath));
+app.get('*path', (_request, response) => {
+  response.sendFile(path.join(distPath, 'index.html'));
+});
+
+const port = Number(process.env.PORT) || 3001;
+server.listen(port, () => {
+  console.log(`Jiang Jie server listening on ${port}`);
 });

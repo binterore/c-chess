@@ -1,50 +1,41 @@
 {
-  "name": "c-chess",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "dev": "concurrently -n server,client -c blue,green \"tsx watch server/index.ts\" \"vite\"",
-    "build": "vite build",
-    "start": "tsx server/index.ts",
-    "test": "echo \"No test specified\""
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "devEngines": {
-    "packageManager": {
-      "name": "pnpm",
-      "version": "^11.4.0",
-      "onFail": "download"
-    }
-  },
+  "name": "jiang-jie",
+  "version": "2.0.0",
+  "private": true,
   "type": "module",
+  "scripts": {
+    "dev": "concurrently -n server,client -c yellow,cyan \"tsx watch server/index.ts\" \"vite\"",
+    "build": "tsc -b && vite build",
+    "start": "tsx server/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -b",
+    "verify:online": "tsx scripts/smoke-online.ts"
+  },
   "dependencies": {
-    "canvas-confetti": "^1.9.4",
-    "cors": "^2.8.6",
     "express": "^5.3.0",
-    "lucide-react": "^1.60.0",
+    "lucide-react": "^0.468.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "socket.io": "^4.8.4",
-    "socket.io-client": "^4.8.4"
+    "socket.io-client": "^4.8.4",
+    "three": "^0.180.0"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.3.3",
-    "@types/canvas-confetti": "^1.9.0",
-    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "^26.6.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "@types/three": "^0.180.0",
     "@vitejs/plugin-react": "^6.1.2",
-    "autoprefixer": "^10.6.1",
     "concurrently": "^10.0.6",
-    "postcss": "^8.5.31",
-    "tailwindcss": "^4.3.3",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
-    "vite": "^8.3.4"
-  }
+    "vite": "^8.3.4",
+    "vitest": "^4.0.18"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "description": "Cinematic 3D Chinese chess with local AI, endgames, and online rooms."
 }

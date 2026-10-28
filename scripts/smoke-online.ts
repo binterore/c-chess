@@ -1,0 +1,22 @@
+import { io } from 'socket.io-client';
+
+const endpoint = process.env.SOCKET_URL ?? 'http://localhost:3001';
+const a = io(endpoint);
+const b = io(endpoint);
+const event = <T>(socket: typeof a, name: string) => new Promise<T>((resolve) => socket.once(name, resolve));
+await Promise.all([event(a, 'connect'), event(b, 'connect')]);
+const created = await new Promise<any>((resolve) => a.emit('create_room', { name: 'A', color: 'red', timeLimit: 300, token: 'token-a' }, resolve));
+if (!created.success) throw new Error(JSON.stringify(created));
+const movedPromise = event<any>(a, 'game_moved');
+const joined = await new Promise<any>((resolve) => b.emit('join_room', { roomId: created.roomId, name: 'B', token: 'token-b' }, resolve));
+if (!joined.success) throw new Error(JSON.stringify(joined));
+const moveResult = await new Promise<any>((resolve) => a.emit('move', { roomId: created.roomId, token: 'token-a', from: [1, 7], to: [4, 7] }, resolve));
+const moved = await movedPromise;
+a.disconnect();
+await new Promise((resolve) => setTimeout(resolve, 150));
+const reconnected = io(endpoint);
+await event(reconnected, 'connect');
+const restored = await new Promise<any>((resolve) => reconnected.emit('sync_room', { roomId: created.roomId, token: 'token-a' }, resolve));
+console.log(JSON.stringify({ roomId: created.roomId, status: joined.room.status, moveResult, notation: moved.move.notation, history: moved.room.game.history.length, turn: moved.room.game.turn, reconnect: { success: restored.success, history: restored.room?.game.history.length, turn: restored.room?.game.turn } }, null, 2));
+b.close();
+reconnected.close();

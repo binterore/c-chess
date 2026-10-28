@@ -15,71 +15,73 @@ export interface Piece {
   color: PieceColor;
 }
 
-export type Position = [number, number]; // [x, y], 0 <= x <= 8, 0 <= y <= 9
+export type Position = [number, number];
 
-export type BoardState = (Piece | null)[][]; // 10 rows (y=0 to 9), each row 9 cols (x=0 to 8)
+export type BoardState = (Piece | null)[][];
 
-export type KillPatternType =
-  | 'wocaoma'
-  | 'zhongpao'
-  | 'guajiaoma'
-  | 'tiemenshuan'
-  | 'chouche'
-  | 'mensha'
-  | 'capture'
-  | 'check'
-  | 'checkmate';
+export type MoveKind = 'quiet' | 'capture' | 'check' | 'checkmate';
 
 export interface Move {
   from: Position;
   to: Position;
   piece: Piece;
   captured?: Piece;
-  killPattern?: KillPatternType;
-  isCheck?: boolean;
-  isCheckmate?: boolean;
+  notation: string;
+  kind: MoveKind;
+  givesCheck: boolean;
+  checkmate: boolean;
+  createdAt?: number;
 }
-
-export type GameStatus = 'waiting' | 'playing' | 'ended';
 
 export type GameOverReason =
   | 'checkmate'
   | 'stalemate'
-  | 'surrender'
+  | 'resignation'
   | 'timeout'
-  | 'agreement';
+  | 'agreement'
+  | 'repetition-draw'
+  | 'perpetual-check';
 
 export interface GameResult {
   winner: PieceColor | 'draw';
   reason: GameOverReason;
-  pattern?: KillPatternType;
+  winnerColor?: PieceColor;
 }
 
-export interface Player {
+export type GameStatus = 'playing' | 'ended';
+
+export interface GameSnapshot {
+  board: BoardState;
+  turn: PieceColor;
+  history: Move[];
+  positionCounts: Record<string, number>;
+  status: GameStatus;
+  result?: GameResult;
+  lastMove?: Move;
+}
+
+export type GameMode = 'ai' | 'local' | 'online' | 'puzzle';
+
+export type AiLevel = 'easy' | 'medium' | 'hard';
+
+export type EffectIntensity = 'full' | 'reduced' | 'off';
+
+export type BoardSkin = 'figurine' | 'classic';
+
+export type CameraView = 'three-quarter' | 'overhead';
+
+export interface VisualMove {
+  id: number;
+  move: Move;
+  duration: number;
+}
+
+export interface PlayerProfile {
   id: string;
   name: string;
-  color?: PieceColor;
-  isReady: boolean;
+  color: PieceColor;
+  connected: boolean;
   timeLeft: number;
-}
-
-export interface RoomState {
-  id: string;
-  hostId: string;
-  players: Record<string, Player>;
-  spectators: string[];
-  status: GameStatus;
-  turn: PieceColor;
-  board: BoardState;
-  history: Move[];
-  result?: GameResult;
-  timeLimit: number; // in seconds, 0 = unlimited
-  activeEffect?: {
-    type: KillPatternType;
-    from?: Position;
-    to?: Position;
-    timestamp: number;
-  };
 }
 
 export interface ChatMessage {
@@ -88,5 +90,55 @@ export interface ChatMessage {
   senderName: string;
   text: string;
   timestamp: number;
-  isPreset?: boolean;
+}
+
+export interface EngineInfo {
+  depth: number;
+  nodes: number;
+  elapsed: number;
+  evaluation: number;
+}
+
+export interface OnlinePlayer {
+  token: string;
+  socketId: string;
+  name: string;
+  color: PieceColor;
+  connected: boolean;
+  timeLeft: number;
+}
+
+export interface OnlineRoom {
+  id: string;
+  hostToken: string;
+  players: OnlinePlayer[];
+  spectatorCount: number;
+  status: 'waiting' | 'playing' | 'ended';
+  game: GameSnapshot;
+  timeLimit: number;
+  createdAt: number;
+  rematchVotes: PieceColor[];
+}
+
+export interface PublicOnlinePlayer {
+  socketId: string;
+  name: string;
+  color: PieceColor;
+  connected: boolean;
+  timeLeft: number;
+}
+
+export interface PublicOnlineRoom extends Omit<OnlineRoom, 'players' | 'hostToken' | 'rematchVotes'> {
+  players: PublicOnlinePlayer[];
+  hostColor: PieceColor;
+  rematchVotes: PieceColor[];
+}
+
+export interface OnlineActionResult {
+  success: boolean;
+  error?: string;
+  roomId?: string;
+  token?: string;
+  role?: 'player' | 'spectator';
+  room?: PublicOnlineRoom;
 }
