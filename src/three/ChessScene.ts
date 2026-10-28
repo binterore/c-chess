@@ -19,7 +19,6 @@ import {
   setPieceSelected,
   setPieceSkin,
   setPieceThreatened,
-  PIECE_CREST_HEIGHT,
   type PieceObject
 } from './pieceFactory';
 
@@ -58,10 +57,8 @@ interface FadingMesh {
 }
 
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
-const CAMERA_RED = new THREE.Vector3(0, 11.2, 13.0);
-const CAMERA_BLACK = new THREE.Vector3(0, 11.2, -13.0);
-const CAMERA_OVERHEAD = new THREE.Vector3(0.01, 16.8, 0.5);
-const TARGET = new THREE.Vector3(0, 0.15, 0);
+const CAMERA_OVERHEAD = new THREE.Vector3(0.01, 18.0, 0.01);
+const TARGET = new THREE.Vector3(0, BOARD_TOP, 0);
 
 function easeOutCubic(value: number): number {
   return 1 - Math.pow(1 - value, 3);
@@ -145,20 +142,20 @@ export class ChessScene {
     this.mobile = window.matchMedia('(max-width: 760px)').matches;
     this.scene.background = new THREE.Color(0x110f17);
 
-    this.camera = new THREE.PerspectiveCamera(42, container.clientWidth / container.clientHeight, 0.1, 75);
+    this.camera = new THREE.PerspectiveCamera(40, container.clientWidth / container.clientHeight, 0.1, 90);
     this.camera.position.copy(this.getOptimalCameraPosition(this.flipped));
 
     this.renderer = new THREE.WebGLRenderer({
-      antialias: !this.mobile,
+      antialias: true,
       powerPreference: 'high-performance',
       alpha: false
     });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, this.mobile ? 1.5 : 1.8));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2.5));
     this.renderer.setSize(container.clientWidth, container.clientHeight);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 0.95;
-    this.renderer.shadowMap.enabled = !this.mobile && this.intensity !== 'off';
+    this.renderer.toneMappingExposure = 1.0;
+    this.renderer.shadowMap.enabled = this.intensity !== 'off';
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.domElement.className = 'battle-canvas';
     this.renderer.domElement.setAttribute('aria-label', '3D Chinese chess battlefield');
@@ -214,7 +211,7 @@ export class ChessScene {
     );
     composer.addPass(bloom);
     composer.addPass(new OutputPass());
-    composer.setPixelRatio(Math.min(window.devicePixelRatio, 1.6));
+    composer.setPixelRatio(Math.min(window.devicePixelRatio, 2.5));
     composer.setSize(this.container.clientWidth, this.container.clientHeight);
     this.composer = composer;
   }
@@ -233,47 +230,37 @@ export class ChessScene {
     const height = Math.max(1, this.container.clientHeight);
     const aspect = width / height;
 
-    const base = flipped ? CAMERA_BLACK : CAMERA_RED;
-    const baseDistance = base.length();
-
-    // 棋盘网格宽 8.16 单位，加上外侧边框与呼吸余白，目标可视宽度约 10.4 单位
-    const targetWidthUnits = 10.4;
     const vFovRad = (this.camera.fov * Math.PI) / 180;
     const halfTan = Math.tan(vFovRad / 2);
-    // 可视宽度 W = 2 * dist * halfTan * aspect >= targetWidthUnits
-    const requiredDistance = (targetWidthUnits / 2) / (halfTan * aspect);
-    const zoomFactor = Math.max(1.0, requiredDistance / baseDistance);
 
-    return new THREE.Vector3(
-      base.x * zoomFactor,
-      base.y * zoomFactor,
-      base.z * zoomFactor
-    );
+    // 棋盘格宽 8.16, 板面宽 9.6; 棋盘格长 9.18, 板面长 10.8
+    // 目标：竖屏紧凑铺满手机宽度 (94% 屏宽)，横屏紧凑铺满手机高度 (90% 屏高)
+    const targetVisibleWidth = 9.2;
+    const targetVisibleHeight = 10.2;
+
+    const distForWidth = (targetVisibleWidth / 2) / (halfTan * aspect);
+    const distForHeight = (targetVisibleHeight / 2) / halfTan;
+    const distance = Math.max(distForWidth, distForHeight);
+
+    // 55度战术俯角：全屏立体展现棋盘，彻底消除前后遮挡
+    const pitchRad = (55 * Math.PI) / 180;
+    const sinPitch = Math.sin(pitchRad);
+    const cosPitch = Math.cos(pitchRad);
+
+    const camY = BOARD_TOP + distance * sinPitch;
+    const camZ = distance * cosPitch * (flipped ? -1 : 1);
+
+    return new THREE.Vector3(0, camY, camZ);
   }
 
   private applyBadgeFacing(object: PieceObject, flipped: boolean): void {
-    const piece = object.userData.piece;
-    const topHeight = PIECE_CREST_HEIGHT[piece.type] ?? 1.40;
-
-    // 1. 基座正面字模
     if (object.userData.badge) {
       if (flipped) {
-        object.userData.badge.position.set(0, 0.18, -0.38);
-        object.userData.badge.rotation.set(0.48, Math.PI, 0);
+        object.userData.badge.position.set(0, 0.20, -0.38);
+        object.userData.badge.rotation.set(0.96, Math.PI, 0);
       } else {
-        object.userData.badge.position.set(0, 0.18, 0.38);
-        object.userData.badge.rotation.set(-0.48, 0, 0);
-      }
-    }
-
-    // 2. 顶部高位战令徽章 (高耸于棋子顶峰，绝不被前排棋子挡住！)
-    if (object.userData.topBadge) {
-      if (flipped) {
-        object.userData.topBadge.position.set(0, topHeight, -0.06);
-        object.userData.topBadge.rotation.set(0.55, Math.PI, 0);
-      } else {
-        object.userData.topBadge.position.set(0, topHeight, 0.06);
-        object.userData.topBadge.rotation.set(-0.55, 0, 0);
+        object.userData.badge.position.set(0, 0.20, 0.38);
+        object.userData.badge.rotation.set(-0.96, 0, 0);
       }
     }
   }
@@ -1049,6 +1036,11 @@ export class ChessScene {
     this.mobile = width <= 768 || width < height;
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
+
+    const pixelRatio = Math.min(window.devicePixelRatio, 2.5);
+    if (this.renderer.getPixelRatio() !== pixelRatio) {
+      this.renderer.setPixelRatio(pixelRatio);
+    }
 
     if (!this.cameraTween && !this.cinematicEnding) {
       const targetCam = this.getOptimalCameraPosition(this.flipped);
