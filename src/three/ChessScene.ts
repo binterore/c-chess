@@ -377,11 +377,11 @@ export class ChessScene {
         const p = child.position;
         return Math.abs(p.x - this.toWorld([x, y]).x) < 0.2 && Math.abs(p.z - this.toWorld([x, y]).z) < 0.2;
       });
-      const geometry = occupied ? new THREE.RingGeometry(0.32, 0.4, 32) : new THREE.CircleGeometry(0.105, 24);
+      const geometry = occupied ? new THREE.RingGeometry(0.38, 0.46, 32) : new THREE.RingGeometry(0.06, 0.15, 24);
       const material = new THREE.MeshBasicMaterial({
-        color: occupied ? 0xff7d58 : 0x9ee6cf,
+        color: occupied ? 0xff4a30 : 0x64e6b8,
         transparent: true,
-        opacity: occupied ? 0.82 : 0.72,
+        opacity: occupied ? 0.88 : 0.82,
         side: THREE.DoubleSide,
         depthWrite: false,
         blending: THREE.AdditiveBlending

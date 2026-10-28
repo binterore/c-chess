@@ -17,6 +17,7 @@ import { ChessBoard } from './ChessBoard';
 
 interface HomeScreenProps {
   board: BoardState;
+  skin: BoardSkin;
   soundOn: boolean;
   onMode: (mode: Exclude<GameMode, 'puzzle'> | 'puzzle') => void;
   onToggleSound: () => void;
@@ -33,6 +34,7 @@ const modes = [
 
 export function HomeScreen({
   board,
+  skin,
   soundOn,
   onMode,
   onToggleSound,
@@ -49,7 +51,7 @@ export function HomeScreen({
           checkedId={null}
           lastMove={null}
           visualMove={null}
-          skin="figurine"
+          skin={skin}
           intensity="full"
           flipped={false}
           idle

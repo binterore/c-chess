@@ -889,6 +889,7 @@ export function App() {
       {screen === 'home' ? (
         <HomeScreen
           board={homeBoard}
+          skin={skin}
           soundOn={soundOn}
           onMode={(nextMode) => setSetupKind(nextMode)}
           onToggleSound={() => setSoundOn((value) => !value)}

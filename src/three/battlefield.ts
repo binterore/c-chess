@@ -182,6 +182,34 @@ export function createBattlefield(scene: THREE.Scene, intensity: EffectIntensity
     group.add(rail);
   });
 
+  const cornerMaterial = new THREE.MeshStandardMaterial({
+    color: palette.gold,
+    metalness: 0.88,
+    roughness: 0.2,
+    emissive: 0x3b1e06,
+    emissiveIntensity: 0.25
+  });
+  const cornerOffsets: Array<[number, number, number]> = [
+    [5.3, 5.88, 0],
+    [-5.3, 5.88, Math.PI / 2],
+    [-5.3, -5.88, Math.PI],
+    [5.3, -5.88, -Math.PI / 2]
+  ];
+  cornerOffsets.forEach(([cx, cz, rot]) => {
+    const bracket = new THREE.Group();
+    const wingX = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.08, 0.16), cornerMaterial);
+    wingX.position.set(-0.28, 0, 0);
+    const wingZ = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.08, 0.72), cornerMaterial);
+    wingZ.position.set(0, 0, -0.28);
+    const rivet = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.1, 8), cornerMaterial);
+    rivet.position.set(0, 0.02, 0);
+    bracket.add(wingX, wingZ, rivet);
+    bracket.position.set(cx, BOARD_TOP + 0.025, cz);
+    bracket.rotation.y = rot;
+    bracket.castShadow = true;
+    group.add(bracket);
+  });
+
   const sideStoneMaterial = new THREE.MeshStandardMaterial({ color: 0x3b2b1c, roughness: 0.9, metalness: 0.08 });
   for (let index = 0; index < 7; index += 1) {
     const x = -9.5 + index * 3.2;

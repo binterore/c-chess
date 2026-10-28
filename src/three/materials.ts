@@ -14,6 +14,64 @@ export const palette = {
   jade: 0x4d7f72
 };
 
+export function makeWoodTexture(color: 'red' | 'black'): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 512;
+  const context = canvas.getContext('2d')!;
+
+  const baseGradient = context.createLinearGradient(0, 0, 512, 512);
+  if (color === 'red') {
+    baseGradient.addColorStop(0, '#5a150e');
+    baseGradient.addColorStop(0.35, '#7f2115');
+    baseGradient.addColorStop(0.7, '#671910');
+    baseGradient.addColorStop(1, '#3b0b06');
+  } else {
+    baseGradient.addColorStop(0, '#151413');
+    baseGradient.addColorStop(0.4, '#242220');
+    baseGradient.addColorStop(0.75, '#191817');
+    baseGradient.addColorStop(1, '#0e0d0c');
+  }
+  context.fillStyle = baseGradient;
+  context.fillRect(0, 0, 512, 512);
+
+  let seed = color === 'red' ? 92147 : 54321;
+  const random = () => {
+    seed = (seed * 16807) % 2147483647;
+    return (seed - 1) / 2147483646;
+  };
+
+  for (let ring = 0; ring < 24; ring += 1) {
+    const radius = 20 + ring * 16 + (random() - 0.5) * 8;
+    context.strokeStyle = color === 'red'
+      ? `rgba(${160 + random() * 40}, ${30 + random() * 20}, ${15 + random() * 10}, ${0.05 + random() * 0.06})`
+      : `rgba(${90 + random() * 30}, ${80 + random() * 25}, ${70 + random() * 20}, ${0.04 + random() * 0.05})`;
+    context.lineWidth = 1 + random() * 3.5;
+    context.beginPath();
+    context.arc(256 + (random() - 0.5) * 12, 256 + (random() - 0.5) * 12, radius, 0, Math.PI * 2);
+    context.stroke();
+  }
+
+  for (let line = 0; line < 120; line += 1) {
+    const x = random() * 512;
+    context.strokeStyle = color === 'red'
+      ? `rgba(${120 + random() * 60}, ${20 + random() * 30}, ${10 + random() * 15}, ${0.03 + random() * 0.06})`
+      : `rgba(${60 + random() * 30}, ${55 + random() * 25}, ${50 + random() * 20}, ${0.03 + random() * 0.05})`;
+    context.lineWidth = 0.5 + random() * 2;
+    context.beginPath();
+    context.moveTo(x, 0);
+    context.bezierCurveTo(x + (random() - 0.5) * 18, 170, x + (random() - 0.5) * 18, 340, x + (random() - 0.5) * 24, 512);
+    context.stroke();
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.anisotropy = 16;
+  return texture;
+}
+
 export function makeGlyphTexture(
   glyph: string,
   color: string,
@@ -28,28 +86,54 @@ export function makeGlyphTexture(
   context.clearRect(0, 0, size, size);
 
   if (plate) {
-    const gradient = context.createRadialGradient(size * 0.42, size * 0.36, 10, size / 2, size / 2, size * 0.48);
-    gradient.addColorStop(0, 'rgba(255,245,212,0.32)');
-    gradient.addColorStop(1, 'rgba(0,0,0,0.18)');
+    const gradient = context.createRadialGradient(size * 0.44, size * 0.38, size * 0.05, size / 2, size / 2, size * 0.48);
+    gradient.addColorStop(0, 'rgba(255, 235, 185, 0.28)');
+    gradient.addColorStop(0.65, 'rgba(0, 0, 0, 0.04)');
+    gradient.addColorStop(1, 'rgba(0, 0, 0, 0.32)');
     context.fillStyle = gradient;
     context.beginPath();
     context.arc(size / 2, size / 2, size * 0.47, 0, Math.PI * 2);
     context.fill();
   }
 
-  context.strokeStyle = color;
-  context.lineWidth = size * 0.022;
-  context.globalAlpha = 0.55;
+  context.strokeStyle = 'rgba(0, 0, 0, 0.45)';
+  context.lineWidth = size * 0.032;
   context.beginPath();
-  context.arc(size / 2, size / 2, size * 0.435, 0, Math.PI * 2);
+  context.arc(size / 2 + size * 0.005, size / 2 + size * 0.006, size * 0.44, 0, Math.PI * 2);
   context.stroke();
-  context.globalAlpha = 1.0;
+
+  context.strokeStyle = color;
+  context.lineWidth = size * 0.024;
+  context.beginPath();
+  context.arc(size / 2, size / 2, size * 0.44, 0, Math.PI * 2);
+  context.stroke();
+
+  context.strokeStyle = color;
+  context.lineWidth = size * 0.008;
+  context.beginPath();
+  context.arc(size / 2, size / 2, size * 0.41, 0, Math.PI * 2);
+  context.stroke();
+
+  const markDist = size * 0.425;
+  const markAngles = [0, Math.PI * 0.5, Math.PI, Math.PI * 1.5];
+  context.fillStyle = color;
+  markAngles.forEach((angle) => {
+    const mx = size / 2 + Math.cos(angle) * markDist;
+    const my = size / 2 + Math.sin(angle) * markDist;
+    context.beginPath();
+    context.arc(mx, my, size * 0.016, 0, Math.PI * 2);
+    context.fill();
+  });
 
   context.textAlign = 'center';
   context.textBaseline = 'middle';
-  context.font = `900 ${size * 0.72}px "Kaiti SC", "STKaiti", "KaiTi", "Songti SC", "Noto Serif SC", serif`;
+  context.font = `900 ${size * 0.7}px "Kaiti SC", "STKaiti", "KaiTi", "Songti SC", "Noto Serif SC", serif`;
+
+  context.fillStyle = 'rgba(0, 0, 0, 0.72)';
+  context.fillText(glyph, size / 2 + size * 0.008, size * 0.51 + size * 0.01);
+
   context.shadowColor = glow;
-  context.shadowBlur = size * 0.1;
+  context.shadowBlur = size * 0.12;
   context.fillStyle = color;
   context.fillText(glyph, size / 2, size * 0.51);
 

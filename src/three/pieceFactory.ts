@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { PIECE_GLYPHS } from '../i18n/chess';
 import type { BoardSkin, Piece, PieceColor } from '../types/chess';
-import { makeGlyphTexture, palette } from './materials';
+import { makeGlyphTexture, makeWoodTexture, palette } from './materials';
 
 type MaterialKind = 'primary' | 'metal' | 'dark' | 'skin';
 
@@ -18,7 +18,7 @@ export interface PieceObject extends THREE.Group {
   userData: {
     piece: Piece;
     baseMaterial: THREE.MeshStandardMaterial;
-    glyphMaterial: THREE.MeshBasicMaterial;
+    glyphMaterial: THREE.MeshStandardMaterial;
     glyph: THREE.Mesh;
     figurine: THREE.Group;
     selectionRing: THREE.Mesh;
@@ -212,50 +212,69 @@ function buildFigurine(piece: Piece, intensity: number): THREE.Group {
   return figurine;
 }
 
+function createTokenGeometry(): THREE.BufferGeometry {
+  const radius = 0.42;
+  const height = 0.24;
+  const points: THREE.Vector2[] = [
+    new THREE.Vector2(0, 0),
+    new THREE.Vector2(radius * 0.88, 0),
+    new THREE.Vector2(radius, height * 0.12),
+    new THREE.Vector2(radius * 0.98, height * 0.36),
+    new THREE.Vector2(radius * 0.95, height * 0.58),
+    new THREE.Vector2(radius * 0.99, height * 0.84),
+    new THREE.Vector2(radius * 0.95, height * 0.98),
+    new THREE.Vector2(radius * 0.88, height),
+    new THREE.Vector2(radius * 0.84, height - 0.006),
+    new THREE.Vector2(0, height - 0.006)
+  ];
+  return new THREE.LatheGeometry(points, 48);
+}
+
 export function createPieceObject(piece: Piece, skin: BoardSkin, intensity: number): PieceObject {
   const group = new THREE.Group() as PieceObject;
   group.name = `piece-${piece.id}`;
-  const primaryColor = piece.color === 'red' ? 0x93261a : 0x1b1917;
-  const glyphColor = piece.color === 'red' ? '#ffe2aa' : '#eaf4ee';
-  const glowColor = piece.color === 'red' ? 'rgba(255,85,35,0.9)' : 'rgba(85,225,190,0.7)';
+  const glyphColor = piece.color === 'red' ? '#ffd88a' : '#f0f5f2';
+  const glowColor = piece.color === 'red' ? 'rgba(255,75,30,0.85)' : 'rgba(100,230,200,0.65)';
 
+  const woodMap = makeWoodTexture(piece.color);
   const baseMaterial = new THREE.MeshStandardMaterial({
-    color: primaryColor,
-    metalness: 0.45,
-    roughness: 0.38,
-    emissive: piece.color === 'red' ? 0x280400 : 0x07100e,
-    emissiveIntensity: 0.36
+    map: woodMap,
+    color: piece.color === 'red' ? 0xfff0ed : 0xf2f2f0,
+    metalness: 0.18,
+    roughness: 0.3,
+    emissive: piece.color === 'red' ? 0x240401 : 0x070c0a,
+    emissiveIntensity: 0.25
   });
-  const baseGeometry = new THREE.CylinderGeometry(skin === 'classic' ? 0.4 : 0.37, skin === 'classic' ? 0.43 : 0.4, skin === 'classic' ? 0.24 : 0.16, 32);
-  const base = new THREE.Mesh(baseGeometry, baseMaterial);
-  base.position.y = skin === 'classic' ? 0.12 : 0.08;
+  const base = new THREE.Mesh(createTokenGeometry(), baseMaterial);
+  base.position.y = 0;
   base.castShadow = true;
   base.receiveShadow = true;
   group.add(base);
 
   const rimMaterial = new THREE.MeshStandardMaterial({
-    color: piece.color === 'red' ? palette.gold : 0xa8a391,
-    metalness: 0.86,
+    color: piece.color === 'red' ? palette.gold : 0xcdc6b8,
+    metalness: 0.88,
     roughness: 0.22,
     emissive: piece.color === 'red' ? 0x4a2208 : 0x111b18,
     emissiveIntensity: 0.25
   });
-  const rim = new THREE.Mesh(new THREE.TorusGeometry(skin === 'classic' ? 0.39 : 0.36, 0.022, 8, 40), rimMaterial);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.395, 0.012, 8, 48), rimMaterial);
   rim.rotation.x = Math.PI / 2;
-  rim.position.y = skin === 'classic' ? 0.245 : 0.17;
+  rim.position.y = 0.202;
   rim.castShadow = true;
   group.add(rim);
 
-  const glyphMaterial = new THREE.MeshBasicMaterial({
+  const glyphMaterial = new THREE.MeshStandardMaterial({
     map: makeGlyphTexture(PIECE_GLYPHS[piece.color][piece.type], glyphColor, glowColor, 512, true),
     transparent: true,
-    opacity: 0.95,
+    roughness: 0.26,
+    metalness: 0.42,
     depthWrite: false,
     side: THREE.DoubleSide
   });
-  const glyph = new THREE.Mesh(new THREE.PlaneGeometry(skin === 'classic' ? 0.74 : 0.62, skin === 'classic' ? 0.74 : 0.62), glyphMaterial);
+  const glyph = new THREE.Mesh(new THREE.CircleGeometry(0.345, 36), glyphMaterial);
   glyph.rotation.x = -Math.PI / 2;
-  glyph.position.set(0, skin === 'classic' ? 0.249 : 0.174, skin === 'classic' ? 0.01 : 0);
+  glyph.position.set(0, 0.235, 0);
   glyph.renderOrder = 2;
   group.add(glyph);
 
@@ -263,12 +282,14 @@ export function createPieceObject(piece: Piece, skin: BoardSkin, intensity: numb
   figurine.visible = skin === 'figurine';
   group.add(figurine);
 
-  const badgeMaterial = new THREE.MeshBasicMaterial({
+  const badgeMaterial = new THREE.MeshStandardMaterial({
     map: makeGlyphTexture(PIECE_GLYPHS[piece.color][piece.type], glyphColor, glowColor, 256, true),
     transparent: true,
+    roughness: 0.3,
+    metalness: 0.4,
     side: THREE.DoubleSide
   });
-  const badge = new THREE.Mesh(new THREE.PlaneGeometry(0.38, 0.38), badgeMaterial);
+  const badge = new THREE.Mesh(new THREE.PlaneGeometry(0.36, 0.36), badgeMaterial);
   badge.position.set(0, 0.22, piece.color === 'red' ? 0.41 : -0.41);
   badge.rotation.y = piece.color === 'red' ? 0 : Math.PI;
   badge.visible = skin === 'figurine';
@@ -277,7 +298,7 @@ export function createPieceObject(piece: Piece, skin: BoardSkin, intensity: numb
   const selectionRing = new THREE.Mesh(
     new THREE.RingGeometry(0.44, 0.52, 48),
     new THREE.MeshBasicMaterial({
-      color: piece.color === 'red' ? 0xffa45e : 0x8ff5df,
+      color: piece.color === 'red' ? 0xff9944 : 0x8ff5df,
       transparent: true,
       opacity: 0,
       side: THREE.DoubleSide,
@@ -290,17 +311,21 @@ export function createPieceObject(piece: Piece, skin: BoardSkin, intensity: numb
   group.add(selectionRing);
 
   group.userData = { piece, baseMaterial, glyphMaterial, glyph, figurine, selectionRing, base, rim, badge };
+  if (skin === 'figurine') {
+    setPieceSkin(group, 'figurine');
+  }
   return group;
 }
 
 export function setPieceSkin(object: PieceObject, skin: BoardSkin): void {
-  object.userData.figurine.visible = skin === 'figurine';
-  if (object.userData.badge) object.userData.badge.visible = skin === 'figurine';
-  object.userData.base.scale.y = skin === 'classic' ? 1.5 : 1;
-  object.userData.base.position.y = skin === 'classic' ? 0.12 : 0.08;
-  object.userData.rim.position.y = skin === 'classic' ? 0.245 : 0.17;
-  object.userData.glyph.scale.setScalar(skin === 'classic' ? 1.28 : 1);
-  object.userData.glyph.position.y = skin === 'classic' ? 0.249 : 0.174;
+  const isFigurine = skin === 'figurine';
+  object.userData.figurine.visible = isFigurine;
+  if (object.userData.badge) object.userData.badge.visible = isFigurine;
+  object.userData.base.scale.set(isFigurine ? 0.92 : 1, isFigurine ? 0.65 : 1, isFigurine ? 0.92 : 1);
+  object.userData.rim.position.y = isFigurine ? 0.131 : 0.202;
+  object.userData.rim.scale.setScalar(isFigurine ? 0.92 : 1);
+  object.userData.glyph.scale.setScalar(isFigurine ? 0.85 : 1);
+  object.userData.glyph.position.y = isFigurine ? 0.152 : 0.235;
 }
 
 export function setPieceSelected(object: PieceObject, selected: boolean): void {
