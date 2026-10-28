@@ -210,9 +210,10 @@ export function makeBoardTexture(riverLabels: [string, string]): THREE.CanvasTex
   const cellY = gridHeight / 9;
 
   const background = context.createLinearGradient(0, 0, width, height);
-  background.addColorStop(0, '#c4a56f');
-  background.addColorStop(0.45, '#b18f57');
-  background.addColorStop(1, '#8a6d40');
+  background.addColorStop(0, '#9e7b4b');
+  background.addColorStop(0.35, '#ba9560');
+  background.addColorStop(0.7, '#a78351');
+  background.addColorStop(1, '#816135');
   context.fillStyle = background;
   context.fillRect(0, 0, width, height);
 
@@ -221,50 +222,93 @@ export function makeBoardTexture(riverLabels: [string, string]): THREE.CanvasTex
     seed = (seed * 48271) % 2147483647;
     return (seed - 1) / 2147483646;
   };
-  for (let index = 0; index < 9000; index += 1) {
-    const x = random() * width;
-    const y = random() * height;
-    context.fillStyle = random() > 0.5 ? `rgba(45,27,13,${random() * 0.06})` : `rgba(255,225,166,${random() * 0.05})`;
-    context.fillRect(x, y, 1 + random() * 2, 1 + random() * 2);
+
+  for (let ring = 0; ring < 70; ring += 1) {
+    const cy = -400 + ring * 55;
+    context.strokeStyle = `rgba(${135 + random() * 40}, ${95 + random() * 30}, ${50 + random() * 20}, ${0.04 + random() * 0.05})`;
+    context.lineWidth = 3 + random() * 12;
+    context.beginPath();
+    context.ellipse(width / 2, cy, width * 0.9, height * 0.6, 0.05, 0, Math.PI * 2);
+    context.stroke();
   }
 
-  context.strokeStyle = 'rgba(48, 28, 14, 0.88)';
-  context.lineCap = 'square';
-  context.lineWidth = 5;
-  context.strokeRect(marginX, marginY, gridWidth, gridHeight);
+  for (let index = 0; index < 6000; index += 1) {
+    const x = random() * width;
+    const y = random() * height;
+    context.fillStyle = random() > 0.5 ? `rgba(40,22,10,${random() * 0.05})` : `rgba(255,230,170,${random() * 0.04})`;
+    context.fillRect(x, y, 1 + random() * 2.5, 1 + random() * 2.5);
+  }
+
+  const riverTop = marginY + cellY * 4;
+  const riverBottom = marginY + cellY * 5;
+  const riverGrad = context.createLinearGradient(0, riverTop, 0, riverBottom);
+  riverGrad.addColorStop(0, 'rgba(28, 18, 10, 0.42)');
+  riverGrad.addColorStop(0.5, 'rgba(20, 14, 8, 0.25)');
+  riverGrad.addColorStop(1, 'rgba(28, 18, 10, 0.42)');
+  context.fillStyle = riverGrad;
+  context.fillRect(marginX, riverTop, gridWidth, cellY);
+
+  const strokeGroove = (drawFn: () => void, lineWidth = 4) => {
+    context.strokeStyle = 'rgba(22, 12, 6, 0.78)';
+    context.lineWidth = lineWidth + 1.5;
+    drawFn();
+
+    context.save();
+    context.translate(1.2, 1.2);
+    context.strokeStyle = 'rgba(255, 235, 185, 0.32)';
+    context.lineWidth = lineWidth * 0.55;
+    drawFn();
+    context.restore();
+
+    context.strokeStyle = 'rgba(48, 24, 10, 0.92)';
+    context.lineWidth = lineWidth;
+    drawFn();
+  };
+
+  strokeGroove(() => {
+    context.strokeRect(marginX, marginY, gridWidth, gridHeight);
+  }, 6);
 
   for (let row = 0; row <= 9; row += 1) {
     const y = marginY + row * cellY;
-    context.beginPath();
-    context.moveTo(marginX, y);
-    context.lineTo(marginX + gridWidth, y);
-    context.stroke();
+    strokeGroove(() => {
+      context.beginPath();
+      context.moveTo(marginX, y);
+      context.lineTo(marginX + gridWidth, y);
+      context.stroke();
+    }, 4);
   }
 
   for (let column = 0; column <= 8; column += 1) {
     const x = marginX + column * cellX;
     if (column === 0 || column === 8) {
-      context.beginPath();
-      context.moveTo(x, marginY);
-      context.lineTo(x, marginY + gridHeight);
-      context.stroke();
+      strokeGroove(() => {
+        context.beginPath();
+        context.moveTo(x, marginY);
+        context.lineTo(x, marginY + gridHeight);
+        context.stroke();
+      }, 4);
     } else {
-      context.beginPath();
-      context.moveTo(x, marginY);
-      context.lineTo(x, marginY + cellY * 4);
-      context.stroke();
-      context.beginPath();
-      context.moveTo(x, marginY + cellY * 5);
-      context.lineTo(x, marginY + gridHeight);
-      context.stroke();
+      strokeGroove(() => {
+        context.beginPath();
+        context.moveTo(x, marginY);
+        context.lineTo(x, marginY + cellY * 4);
+        context.stroke();
+        context.beginPath();
+        context.moveTo(x, marginY + cellY * 5);
+        context.lineTo(x, marginY + gridHeight);
+        context.stroke();
+      }, 4);
     }
   }
 
   const drawDiagonal = (x1: number, y1: number, x2: number, y2: number) => {
-    context.beginPath();
-    context.moveTo(x1, y1);
-    context.lineTo(x2, y2);
-    context.stroke();
+    strokeGroove(() => {
+      context.beginPath();
+      context.moveTo(x1, y1);
+      context.lineTo(x2, y2);
+      context.stroke();
+    }, 3.5);
   };
   drawDiagonal(marginX + cellX * 3, marginY, marginX + cellX * 5, marginY + cellY * 2);
   drawDiagonal(marginX + cellX * 5, marginY, marginX + cellX * 3, marginY + cellY * 2);
@@ -272,15 +316,22 @@ export function makeBoardTexture(riverLabels: [string, string]): THREE.CanvasTex
   drawDiagonal(marginX + cellX * 5, marginY + cellY * 7, marginX + cellX * 3, marginY + cellY * 9);
 
   context.save();
-  context.fillStyle = 'rgba(43, 26, 14, 0.62)';
-  context.font = '700 58px "Noto Serif SC", "Songti SC", serif';
+  context.font = '900 68px "Noto Serif SC", "Songti SC", serif';
   context.textAlign = 'center';
   context.textBaseline = 'middle';
+
+  context.fillStyle = 'rgba(20, 10, 4, 0.72)';
+  context.fillText(riverLabels[0], marginX + cellX * 2.5 + 2, marginY + cellY * 4.5 + 2);
+  context.fillText(riverLabels[1], marginX + cellX * 5.5 + 2, marginY + cellY * 4.5 + 2);
+
+  context.fillStyle = '#eed6a2';
+  context.shadowColor = 'rgba(255, 180, 80, 0.45)';
+  context.shadowBlur = 12;
   context.fillText(riverLabels[0], marginX + cellX * 2.5, marginY + cellY * 4.5);
   context.fillText(riverLabels[1], marginX + cellX * 5.5, marginY + cellY * 4.5);
   context.restore();
 
-  context.strokeStyle = 'rgba(78, 42, 18, 0.55)';
+  context.strokeStyle = 'rgba(65, 34, 14, 0.65)';
   context.lineWidth = 3;
   for (let row = 0; row <= 9; row += 1) {
     for (let column = 0; column <= 8; column += 1) {

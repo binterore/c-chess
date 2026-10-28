@@ -213,19 +213,21 @@ function buildFigurine(piece: Piece, intensity: number): THREE.Group {
 }
 
 function createTokenGeometry(): THREE.BufferGeometry {
-  const radius = 0.42;
-  const height = 0.24;
+  const radius = 0.43;
+  const height = 0.38;
   const points: THREE.Vector2[] = [
     new THREE.Vector2(0, 0),
-    new THREE.Vector2(radius * 0.88, 0),
-    new THREE.Vector2(radius, height * 0.12),
-    new THREE.Vector2(radius * 0.98, height * 0.36),
-    new THREE.Vector2(radius * 0.95, height * 0.58),
-    new THREE.Vector2(radius * 0.99, height * 0.84),
-    new THREE.Vector2(radius * 0.95, height * 0.98),
+    new THREE.Vector2(radius * 0.90, 0),
+    new THREE.Vector2(radius, height * 0.10),
+    new THREE.Vector2(radius * 0.98, height * 0.22),
+    new THREE.Vector2(radius * 0.93, height * 0.40),
+    new THREE.Vector2(radius * 0.91, height * 0.55),
+    new THREE.Vector2(radius * 0.96, height * 0.72),
+    new THREE.Vector2(radius * 1.00, height * 0.88),
+    new THREE.Vector2(radius * 0.96, height * 0.97),
     new THREE.Vector2(radius * 0.88, height),
-    new THREE.Vector2(radius * 0.84, height - 0.006),
-    new THREE.Vector2(0, height - 0.006)
+    new THREE.Vector2(radius * 0.84, height - 0.015),
+    new THREE.Vector2(0, height - 0.015)
   ];
   return new THREE.LatheGeometry(points, 48);
 }
@@ -258,23 +260,26 @@ export function createPieceObject(piece: Piece, skin: BoardSkin, intensity: numb
     emissive: piece.color === 'red' ? 0x4a2208 : 0x111b18,
     emissiveIntensity: 0.25
   });
-  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.395, 0.012, 8, 48), rimMaterial);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.428, 0.012, 8, 48), rimMaterial);
   rim.rotation.x = Math.PI / 2;
-  rim.position.y = 0.202;
+  rim.position.y = 0.334;
   rim.castShadow = true;
   group.add(rim);
 
+  const glyphTex = makeGlyphTexture(PIECE_GLYPHS[piece.color][piece.type], glyphColor, glowColor, 512, true);
   const glyphMaterial = new THREE.MeshStandardMaterial({
-    map: makeGlyphTexture(PIECE_GLYPHS[piece.color][piece.type], glyphColor, glowColor, 512, true),
+    map: glyphTex,
+    bumpMap: glyphTex,
+    bumpScale: 0.065,
     transparent: true,
     roughness: 0.26,
     metalness: 0.42,
     depthWrite: false,
     side: THREE.DoubleSide
   });
-  const glyph = new THREE.Mesh(new THREE.CircleGeometry(0.345, 36), glyphMaterial);
+  const glyph = new THREE.Mesh(new THREE.CircleGeometry(0.355, 36), glyphMaterial);
   glyph.rotation.x = -Math.PI / 2;
-  glyph.position.set(0, 0.235, 0);
+  glyph.position.set(0, 0.365, 0);
   glyph.renderOrder = 2;
   group.add(glyph);
 
@@ -321,11 +326,11 @@ export function setPieceSkin(object: PieceObject, skin: BoardSkin): void {
   const isFigurine = skin === 'figurine';
   object.userData.figurine.visible = isFigurine;
   if (object.userData.badge) object.userData.badge.visible = isFigurine;
-  object.userData.base.scale.set(isFigurine ? 0.92 : 1, isFigurine ? 0.65 : 1, isFigurine ? 0.92 : 1);
-  object.userData.rim.position.y = isFigurine ? 0.131 : 0.202;
+  object.userData.base.scale.set(isFigurine ? 0.92 : 1, isFigurine ? 0.48 : 1, isFigurine ? 0.92 : 1);
+  object.userData.rim.position.y = isFigurine ? 0.16 : 0.334;
   object.userData.rim.scale.setScalar(isFigurine ? 0.92 : 1);
   object.userData.glyph.scale.setScalar(isFigurine ? 0.85 : 1);
-  object.userData.glyph.position.y = isFigurine ? 0.152 : 0.235;
+  object.userData.glyph.position.y = isFigurine ? 0.175 : 0.365;
 }
 
 export function setPieceSelected(object: PieceObject, selected: boolean): void {

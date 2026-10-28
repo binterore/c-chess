@@ -122,7 +122,7 @@ export function createBattlefield(scene: THREE.Scene, intensity: EffectIntensity
   group.name = 'battlefield';
   scene.add(group);
 
-  scene.fog = new THREE.FogExp2(0x090806, 0.032);
+  scene.fog = new THREE.FogExp2(0x131118, 0.015);
 
   const groundTexture = makeStoneTexture();
   groundTexture.repeat.set(7, 7);
@@ -210,6 +210,55 @@ export function createBattlefield(scene: THREE.Scene, intensity: EffectIntensity
     group.add(bracket);
   });
 
+  const riverbankMaterial = new THREE.MeshStandardMaterial({
+    color: 0x4a3424,
+    roughness: 0.62,
+    metalness: 0.22,
+    emissive: 0x1f1208,
+    emissiveIntensity: 0.2
+  });
+  const bankSouth = new THREE.Mesh(new THREE.BoxGeometry(9.62, 0.035, 0.05), riverbankMaterial);
+  bankSouth.position.set(0, BOARD_TOP + 0.015, 0.52);
+  bankSouth.castShadow = true;
+  group.add(bankSouth);
+
+  const bankNorth = new THREE.Mesh(new THREE.BoxGeometry(9.62, 0.035, 0.05), riverbankMaterial);
+  bankNorth.position.set(0, BOARD_TOP + 0.015, -0.52);
+  bankNorth.castShadow = true;
+  group.add(bankNorth);
+
+  const bridgeMaterial = new THREE.MeshStandardMaterial({
+    color: 0x5a4230,
+    roughness: 0.58,
+    metalness: 0.25
+  });
+  for (let col = 0; col <= 8; col += 1) {
+    const x = (col - 4) * BOARD_CELL;
+    const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.024, 1.04), bridgeMaterial);
+    bridge.position.set(x, BOARD_TOP + 0.01, 0);
+    bridge.castShadow = true;
+    bridge.receiveShadow = true;
+    group.add(bridge);
+  }
+
+  const moonGroup = new THREE.Group();
+  const moon = new THREE.Mesh(
+    new THREE.CircleGeometry(3.6, 32),
+    new THREE.MeshBasicMaterial({ color: 0xfffae8 })
+  );
+  const moonHalo = new THREE.Mesh(
+    new THREE.CircleGeometry(6.4, 32),
+    new THREE.MeshBasicMaterial({
+      color: 0x789ac2,
+      transparent: true,
+      opacity: 0.22,
+      blending: THREE.AdditiveBlending
+    })
+  );
+  moonGroup.add(moon, moonHalo);
+  moonGroup.position.set(0, 19, -34);
+  group.add(moonGroup);
+
   const sideStoneMaterial = new THREE.MeshStandardMaterial({ color: 0x3b2b1c, roughness: 0.9, metalness: 0.08 });
   for (let index = 0; index < 7; index += 1) {
     const x = -9.5 + index * 3.2;
@@ -236,24 +285,54 @@ export function createBattlefield(scene: THREE.Scene, intensity: EffectIntensity
     group.add(stone);
   }
 
-  const mountainMaterial = new THREE.MeshStandardMaterial({ color: 0x13100c, roughness: 1, metalness: 0 });
+  const mountainMaterialNear = new THREE.MeshStandardMaterial({ color: 0x1a1614, roughness: 1, metalness: 0 });
+  const mountainMaterialMid = new THREE.MeshStandardMaterial({ color: 0x221f28, roughness: 1, metalness: 0 });
+  const mountainMaterialFar = new THREE.MeshStandardMaterial({ color: 0x2c2836, roughness: 1, metalness: 0 });
+
   for (let index = 0; index < 14; index += 1) {
     const mountain = new THREE.Mesh(
-      new THREE.ConeGeometry(2.3 + (index % 4) * 0.7, 4 + (index % 3), 5),
-      mountainMaterial
+      new THREE.ConeGeometry(2.8 + (index % 4) * 0.8, 5.5 + (index % 3) * 1.2, 5),
+      mountainMaterialNear
     );
-    mountain.position.set(-15 + index * 2.4, 1.2 + (index % 3) * 0.35, -15 - (index % 2) * 2.4);
+    mountain.position.set(-18 + index * 2.8, 2.0 + (index % 3) * 0.5, -17 - (index % 2) * 2.4);
     mountain.rotation.y = index * 0.4;
     group.add(mountain);
   }
   for (let index = 0; index < 14; index += 1) {
     const mountain = new THREE.Mesh(
-      new THREE.ConeGeometry(2.3 + (index % 4) * 0.7, 4 + (index % 3), 5),
-      mountainMaterial
+      new THREE.ConeGeometry(3.6 + (index % 3) * 1.1, 7.5 + (index % 4) * 1.5, 5),
+      mountainMaterialMid
     );
-    mountain.position.set(-15 + index * 2.4, 1.2 + (index % 3) * 0.35, 15 + (index % 2) * 2.4);
-    mountain.rotation.y = index * 0.4;
+    mountain.position.set(-20 + index * 3.2, 3.2 + (index % 3) * 0.6, -24 - (index % 3) * 3);
+    mountain.rotation.y = index * 0.6;
     group.add(mountain);
+  }
+  for (let index = 0; index < 12; index += 1) {
+    const mountain = new THREE.Mesh(
+      new THREE.ConeGeometry(4.8 + (index % 4) * 1.4, 10 + (index % 3) * 2, 5),
+      mountainMaterialFar
+    );
+    mountain.position.set(-22 + index * 4.0, 4.5 + (index % 3) * 0.8, -32 - (index % 2) * 4);
+    mountain.rotation.y = index * 0.3;
+    group.add(mountain);
+  }
+
+  for (let index = 0; index < 8; index += 1) {
+    const leftPeak = new THREE.Mesh(
+      new THREE.ConeGeometry(3.2 + (index % 3) * 0.9, 6.2 + (index % 3) * 1.2, 5),
+      mountainMaterialNear
+    );
+    leftPeak.position.set(-17 - (index % 2) * 3.5, 2.2 + (index % 3) * 0.5, -12 + index * 3.8);
+    leftPeak.rotation.y = index * 0.5;
+    group.add(leftPeak);
+
+    const rightPeak = new THREE.Mesh(
+      new THREE.ConeGeometry(3.2 + (index % 3) * 0.9, 6.2 + (index % 3) * 1.2, 5),
+      mountainMaterialNear
+    );
+    rightPeak.position.set(17 + (index % 2) * 3.5, 2.2 + (index % 3) * 0.5, -12 + index * 3.8);
+    rightPeak.rotation.y = index * 0.5;
+    group.add(rightPeak);
   }
 
   group.add(createBanner(copy.board.seal, -6.9, -4.9, 0.2));
@@ -264,10 +343,12 @@ export function createBattlefield(scene: THREE.Scene, intensity: EffectIntensity
   const flameList: THREE.Mesh[] = [];
   const torchLights: THREE.PointLight[] = [];
   const torchPositions: Array<[number, number]> = [
-    [-7.2, -3.2],
-    [7.2, -3.2],
-    [-7.2, 3.5],
-    [7.2, 3.5]
+    [-7.2, -4.6],
+    [7.2, -4.6],
+    [-7.4, 0],
+    [7.4, 0],
+    [-7.2, 4.6],
+    [7.2, 4.6]
   ];
   torchPositions.forEach(([x, z]) => {
     const torch = createTorch(x, z);
@@ -323,27 +404,31 @@ export function createBattlefield(scene: THREE.Scene, intensity: EffectIntensity
   );
   group.add(embers);
 
-  const ambient = new THREE.HemisphereLight(0x9b815a, 0x130c08, 1.5);
+  const ambient = new THREE.HemisphereLight(0x52465c, 0x18141d, 1.4);
   scene.add(ambient);
 
-  const keyLight = new THREE.DirectionalLight(0xffd59b, 4.4);
-  keyLight.position.set(-7, 13, 8);
+  const keyLight = new THREE.DirectionalLight(0xffe0b2, 5.2);
+  keyLight.position.set(-8, 15, 11);
   keyLight.castShadow = !mobile && intensity !== 'off';
   keyLight.shadow.mapSize.set(mobile ? 1024 : 2048, mobile ? 1024 : 2048);
-  keyLight.shadow.camera.left = -9;
-  keyLight.shadow.camera.right = 9;
-  keyLight.shadow.camera.top = 9;
-  keyLight.shadow.camera.bottom = -9;
-  keyLight.shadow.camera.near = 1;
-  keyLight.shadow.camera.far = 28;
-  keyLight.shadow.bias = -0.0002;
+  keyLight.shadow.camera.left = -11;
+  keyLight.shadow.camera.right = 11;
+  keyLight.shadow.camera.top = 11;
+  keyLight.shadow.camera.bottom = -11;
+  keyLight.shadow.camera.near = 2;
+  keyLight.shadow.camera.far = 40;
+  keyLight.shadow.bias = -0.0004;
   scene.add(keyLight);
 
-  const redRim = new THREE.PointLight(0xa32d1a, 12, 15, 2);
+  const moonRim = new THREE.DirectionalLight(0x789ac2, 2.5);
+  moonRim.position.set(0, 18, -25);
+  scene.add(moonRim);
+
+  const redRim = new THREE.PointLight(0xa32d1a, 8, 15, 2);
   redRim.position.set(-7, 4.5, -2);
   scene.add(redRim);
 
-  const tealRim = new THREE.PointLight(0x296f68, 9, 15, 2);
+  const tealRim = new THREE.PointLight(0x296f68, 7, 15, 2);
   tealRim.position.set(7, 4, 4);
   scene.add(tealRim);
 

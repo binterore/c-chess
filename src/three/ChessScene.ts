@@ -57,10 +57,10 @@ interface FadingMesh {
 }
 
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
-const CAMERA_RED = new THREE.Vector3(0, 9.8, 13.4);
-const CAMERA_BLACK = new THREE.Vector3(0, 9.8, -13.4);
+const CAMERA_RED = new THREE.Vector3(0, 8.8, 14.5);
+const CAMERA_BLACK = new THREE.Vector3(0, 8.8, -14.5);
 const CAMERA_OVERHEAD = new THREE.Vector3(0.01, 16.8, 0.5);
-const TARGET = new THREE.Vector3(0, 0.2, 0);
+const TARGET = new THREE.Vector3(0, 0.15, 0);
 
 function smoothStep(value: number): number {
   return value * value * (3 - 2 * value);
@@ -141,9 +141,9 @@ export class ChessScene {
     this.intensity = options.intensity;
     this.flipped = options.flipped;
     this.mobile = window.matchMedia('(max-width: 760px)').matches;
-    this.scene.background = new THREE.Color(0x090806);
+    this.scene.background = new THREE.Color(0x110f17);
 
-    this.camera = new THREE.PerspectiveCamera(40, container.clientWidth / container.clientHeight, 0.1, 70);
+    this.camera = new THREE.PerspectiveCamera(42, container.clientWidth / container.clientHeight, 0.1, 75);
     this.camera.position.copy(this.flipped ? CAMERA_BLACK : CAMERA_RED);
 
     this.renderer = new THREE.WebGLRenderer({
