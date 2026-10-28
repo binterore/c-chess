@@ -14,6 +14,16 @@ interface Part {
   scale?: [number, number, number];
 }
 
+export const PIECE_CREST_HEIGHT: Record<Piece['type'], number> = {
+  general: 1.62,
+  advisor: 1.48,
+  elephant: 1.44,
+  horse: 1.44,
+  chariot: 1.34,
+  cannon: 1.25,
+  soldier: 1.36
+};
+
 export interface PieceObject extends THREE.Group {
   userData: {
     piece: Piece;
@@ -27,6 +37,7 @@ export interface PieceObject extends THREE.Group {
     base: THREE.Mesh;
     rim: THREE.Mesh;
     badge?: THREE.Group;
+    topBadge?: THREE.Group;
   };
 }
 
@@ -550,27 +561,43 @@ function createTokenGeometry(): THREE.BufferGeometry {
   return new THREE.LatheGeometry(points, 48);
 }
 
-function createBadge(piece: Piece, glyphColor: string, outlineColor: string): THREE.Group {
+function createBadge(
+  piece: Piece,
+  glyphColor: string,
+  outlineColor: string,
+  isTop = false
+): THREE.Group {
   const badgeGroup = new THREE.Group();
-  badgeGroup.name = 'badge-group';
+  badgeGroup.name = isTop ? 'top-badge-group' : 'badge-group';
 
+  const radius = isTop ? 0.22 : 0.21;
   const plaqueMat = new THREE.MeshStandardMaterial({
     color: piece.color === 'red' ? 0x2b0d09 : 0x161817,
-    roughness: 0.65,
+    roughness: 0.55,
     metalness: 0.35
   });
-  const plaque = new THREE.Mesh(new THREE.CylinderGeometry(0.21, 0.22, 0.026, 28), plaqueMat);
+  const plaque = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius * 1.05, 0.024, 28), plaqueMat);
   plaque.rotation.x = Math.PI / 2;
   plaque.castShadow = true;
   badgeGroup.add(plaque);
 
   const rimMat = new THREE.MeshStandardMaterial({
     color: piece.color === 'red' ? palette.gold : 0xc7c0af,
-    roughness: 0.32,
-    metalness: 0.78
+    roughness: 0.28,
+    metalness: 0.82
   });
-  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.215, 0.014, 8, 28), rimMat);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(radius * 1.02, 0.013, 8, 28), rimMat);
   badgeGroup.add(rim);
+
+  if (isTop) {
+    const finial = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.10, 6), rimMat);
+    finial.position.y = radius + 0.04;
+    badgeGroup.add(finial);
+
+    const pin = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.08, 6), rimMat);
+    pin.position.y = -radius - 0.03;
+    badgeGroup.add(pin);
+  }
 
   const badgeTex = makeGlyphTexture(PIECE_GLYPHS[piece.color][piece.type], glyphColor, outlineColor, 512, false);
   const faceMat = new THREE.MeshBasicMaterial({
@@ -578,8 +605,8 @@ function createBadge(piece: Piece, glyphColor: string, outlineColor: string): TH
     transparent: true,
     depthWrite: false
   });
-  const face = new THREE.Mesh(new THREE.PlaneGeometry(0.40, 0.40), faceMat);
-  face.position.z = 0.016;
+  const face = new THREE.Mesh(new THREE.PlaneGeometry(radius * 1.9, radius * 1.9), faceMat);
+  face.position.z = 0.015;
   badgeGroup.add(face);
 
   return badgeGroup;
@@ -637,10 +664,18 @@ export function createPieceObject(piece: Piece, skin: BoardSkin, intensity: numb
   const { figurine, materials: figurineMaterials } = buildFigurine(piece, intensity);
   group.add(figurine);
 
-  const badge = createBadge(piece, glyphColor, outlineColor);
+  // 1. Base badge on front of pedestal
+  const badge = createBadge(piece, glyphColor, outlineColor, false);
   badge.position.set(0, 0.18, 0.38);
-  badge.rotation.x = -0.42;
+  badge.rotation.x = -0.48;
   group.add(badge);
+
+  // 2. Elevated top crest badge (NEVER blocked by pieces in front!)
+  const topHeight = PIECE_CREST_HEIGHT[piece.type] ?? 1.40;
+  const topBadge = createBadge(piece, glyphColor, outlineColor, true);
+  topBadge.position.set(0, topHeight, 0.06);
+  topBadge.rotation.x = -0.55;
+  group.add(topBadge);
 
   const selectionRing = new THREE.Mesh(
     new THREE.RingGeometry(0.46, 0.54, 48),
@@ -668,7 +703,8 @@ export function createPieceObject(piece: Piece, skin: BoardSkin, intensity: numb
     selectionRing,
     base,
     rim,
-    badge
+    badge,
+    topBadge
   };
   setPieceSkin(group, skin);
   return group;
@@ -678,6 +714,7 @@ export function setPieceSkin(object: PieceObject, skin: BoardSkin): void {
   const isFigurine = skin === 'figurine';
   object.userData.figurine.visible = isFigurine;
   if (object.userData.badge) object.userData.badge.visible = isFigurine;
+  if (object.userData.topBadge) object.userData.topBadge.visible = isFigurine;
   object.userData.base.visible = !isFigurine;
   object.userData.rim.visible = !isFigurine;
   object.userData.glyph.visible = !isFigurine;

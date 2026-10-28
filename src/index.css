@@ -31,6 +31,7 @@ body,
 #root {
   width: 100%;
   height: 100%;
+  height: 100dvh;
   margin: 0;
   overflow: hidden;
 }
@@ -1446,11 +1447,11 @@ input {
   top: 0;
   left: 0;
   right: 0;
-  height: 69px;
+  height: calc(69px + env(safe-area-inset-top, 0px));
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 18px;
+  padding: env(safe-area-inset-top, 0px) max(18px, env(safe-area-inset-right, 0px)) 0 max(18px, env(safe-area-inset-left, 0px));
   background: linear-gradient(180deg, rgba(8, 7, 5, 0.88), rgba(8, 7, 5, 0));
 }
 
@@ -1731,8 +1732,8 @@ input {
 
 .board-unified-dock {
   position: absolute;
-  bottom: 24px;
-  left: calc((100% - 344px) / 2);
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  left: 50%;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -3569,9 +3570,18 @@ input {
     width: 13px;
   }
 
+  .game-topbar {
+    height: calc(54px + env(safe-area-inset-top, 0px));
+    padding: env(safe-area-inset-top, 0px) 10px 0;
+  }
+
   .game-topbar-left,
   .game-topbar-actions {
-    gap: 6px;
+    gap: 5px;
+  }
+
+  .mini-brand div small {
+    display: none;
   }
 
   .game-topbar-actions .round-action:nth-last-child(2) {
@@ -3579,15 +3589,55 @@ input {
   }
 
   .turn-plaque {
-    left: 49%;
+    left: 50%;
+    transform: translateX(-50%);
+    min-width: unset;
+    padding: 4px 10px 4px 6px;
+    gap: 6px;
+  }
+
+  .turn-orb {
+    width: 24px;
+    height: 24px;
+    font-size: 13px;
   }
 
   .turn-plaque small {
-    font-size: 6px;
+    font-size: 7px;
   }
 
   .turn-plaque strong {
+    font-size: 9px;
+  }
+
+  .board-side-stack {
+    top: calc(58px + env(safe-area-inset-top, 0px));
+    bottom: calc(66px + env(safe-area-inset-bottom, 0px));
+    left: 8px;
+    pointer-events: none;
+  }
+
+  .player-badge {
+    min-width: unset;
+    max-width: 120px;
+    padding: 4px 6px;
+    gap: 5px;
+    pointer-events: none;
+  }
+
+  .player-badge .player-seal {
+    width: 24px;
+    height: 24px;
+    font-size: 13px;
+  }
+
+  .player-badge strong {
+    max-width: 68px;
     font-size: 8px;
+  }
+
+  .player-badge .clock {
+    font-size: 11px;
   }
 
   .room-chip {
@@ -3598,8 +3648,39 @@ input {
     display: none;
   }
 
+  .board-unified-dock {
+    left: 50%;
+    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    padding: 3px 6px;
+    gap: 3px;
+    max-width: calc(100vw - 16px);
+  }
+
+  .board-unified-dock .dock-btn {
+    padding: 0 8px;
+    height: 32px;
+  }
+
   .board-unified-dock .dock-btn span {
     display: none;
+  }
+
+  .endgame-replay-dock {
+    bottom: calc(58px + env(safe-area-inset-bottom, 0px));
+    gap: 8px;
+    padding: 5px 12px;
+    max-width: calc(100vw - 16px);
+  }
+
+  .endgame-replay-info {
+    font-size: 11px;
+    gap: 4px;
+  }
+
+  .endgame-btn-replay,
+  .endgame-btn-summary {
+    font-size: 11px;
+    padding: 5px 10px;
   }
 
   .puzzle-objective {
@@ -3953,7 +4034,7 @@ input {
 .endgame-replay-dock {
   position: absolute;
   z-index: 15;
-  bottom: 84px;
+  bottom: calc(84px + env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
   display: flex;

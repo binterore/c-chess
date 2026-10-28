@@ -19,6 +19,7 @@ import {
   setPieceSelected,
   setPieceSkin,
   setPieceThreatened,
+  PIECE_CREST_HEIGHT,
   type PieceObject
 } from './pieceFactory';
 
@@ -57,8 +58,8 @@ interface FadingMesh {
 }
 
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
-const CAMERA_RED = new THREE.Vector3(0, 8.8, 14.5);
-const CAMERA_BLACK = new THREE.Vector3(0, 8.8, -14.5);
+const CAMERA_RED = new THREE.Vector3(0, 11.2, 13.0);
+const CAMERA_BLACK = new THREE.Vector3(0, 11.2, -13.0);
 const CAMERA_OVERHEAD = new THREE.Vector3(0.01, 16.8, 0.5);
 const TARGET = new THREE.Vector3(0, 0.15, 0);
 
@@ -145,7 +146,7 @@ export class ChessScene {
     this.scene.background = new THREE.Color(0x110f17);
 
     this.camera = new THREE.PerspectiveCamera(42, container.clientWidth / container.clientHeight, 0.1, 75);
-    this.camera.position.copy(this.flipped ? CAMERA_BLACK : CAMERA_RED);
+    this.camera.position.copy(this.getOptimalCameraPosition(this.flipped));
 
     this.renderer = new THREE.WebGLRenderer({
       antialias: !this.mobile,
@@ -167,12 +168,10 @@ export class ChessScene {
     this.controls.target.copy(TARGET);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.07;
-    this.controls.minDistance = 8;
-    this.controls.maxDistance = 20;
-    this.controls.minPolarAngle = 0.28;
-    this.controls.maxPolarAngle = 1.34;
-    this.controls.autoRotateSpeed = 0.22;
+    this.controls.enableRotate = false; // 固定视角，锁定角度
+    this.controls.enableZoom = false;
     this.controls.enablePan = false;
+    this.controls.autoRotateSpeed = 2.0;
     this.controls.update();
 
     this.battlefield = createBattlefield(this.scene, this.intensity, this.mobile);
@@ -229,6 +228,56 @@ export class ChessScene {
     canvas.addEventListener('contextmenu', this.preventContextMenu);
   }
 
+  private getOptimalCameraPosition(flipped: boolean): THREE.Vector3 {
+    const width = Math.max(1, this.container.clientWidth);
+    const height = Math.max(1, this.container.clientHeight);
+    const aspect = width / height;
+
+    const base = flipped ? CAMERA_BLACK : CAMERA_RED;
+    const baseDistance = base.length();
+
+    // 棋盘网格宽 8.16 单位，加上外侧边框与呼吸余白，目标可视宽度约 10.4 单位
+    const targetWidthUnits = 10.4;
+    const vFovRad = (this.camera.fov * Math.PI) / 180;
+    const halfTan = Math.tan(vFovRad / 2);
+    // 可视宽度 W = 2 * dist * halfTan * aspect >= targetWidthUnits
+    const requiredDistance = (targetWidthUnits / 2) / (halfTan * aspect);
+    const zoomFactor = Math.max(1.0, requiredDistance / baseDistance);
+
+    return new THREE.Vector3(
+      base.x * zoomFactor,
+      base.y * zoomFactor,
+      base.z * zoomFactor
+    );
+  }
+
+  private applyBadgeFacing(object: PieceObject, flipped: boolean): void {
+    const piece = object.userData.piece;
+    const topHeight = PIECE_CREST_HEIGHT[piece.type] ?? 1.40;
+
+    // 1. 基座正面字模
+    if (object.userData.badge) {
+      if (flipped) {
+        object.userData.badge.position.set(0, 0.18, -0.38);
+        object.userData.badge.rotation.set(0.48, Math.PI, 0);
+      } else {
+        object.userData.badge.position.set(0, 0.18, 0.38);
+        object.userData.badge.rotation.set(-0.48, 0, 0);
+      }
+    }
+
+    // 2. 顶部高位战令徽章 (高耸于棋子顶峰，绝不被前排棋子挡住！)
+    if (object.userData.topBadge) {
+      if (flipped) {
+        object.userData.topBadge.position.set(0, topHeight, -0.06);
+        object.userData.topBadge.rotation.set(0.55, Math.PI, 0);
+      } else {
+        object.userData.topBadge.position.set(0, topHeight, 0.06);
+        object.userData.topBadge.rotation.set(-0.55, 0, 0);
+      }
+    }
+  }
+
   private preventContextMenu = (event: Event): void => {
     event.preventDefault();
   };
@@ -239,14 +288,16 @@ export class ChessScene {
   };
 
   private handlePointerUp = (event: PointerEvent): void => {
+    const maxDrag = event.pointerType === 'touch' ? 22 : 8;
     const distance = Math.hypot(event.clientX - this.pointerStart.x, event.clientY - this.pointerStart.y);
-    if (distance > 7 || this.pointerMoved) return;
+    if (distance > maxDrag || this.pointerMoved) return;
     const square = this.squareFromPointer(event);
     if (square) this.callbacks.onSquareClick(square);
   };
 
   private handlePointerMove = (event: PointerEvent): void => {
-    if (Math.hypot(event.clientX - this.pointerStart.x, event.clientY - this.pointerStart.y) > 7) {
+    const maxDrag = event.pointerType === 'touch' ? 22 : 8;
+    if (Math.hypot(event.clientX - this.pointerStart.x, event.clientY - this.pointerStart.y) > maxDrag) {
       this.pointerMoved = true;
     }
     if (event.pointerType !== 'mouse') return;
@@ -286,6 +337,25 @@ export class ChessScene {
     this.pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     this.pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
     this.raycaster.setFromCamera(this.pointer, this.camera);
+
+    // 1. 优先检测是否直接点中棋子模型本身（棋子高耸有立体高度，直截拾取避免斜角投影偏差）
+    const pieceIntersects = this.raycaster.intersectObjects(this.piecesRoot.children, true);
+    if (pieceIntersects.length > 0) {
+      let current: THREE.Object3D | null = pieceIntersects[0].object;
+      while (current && current.parent !== this.piecesRoot) {
+        current = current.parent;
+      }
+      if (current && (current as PieceObject).userData?.piece) {
+        const pieceObj = current as PieceObject;
+        const x = Math.round(pieceObj.position.x / BOARD_CELL + 4);
+        const y = Math.round(pieceObj.position.z / BOARD_CELL + 4.5);
+        if (x >= 0 && x <= 8 && y >= 0 && y <= 9) {
+          return [x, y];
+        }
+      }
+    }
+
+    // 2. 否则按棋盘地面平面做射线交点计算（用于点击空白交叉点以走子）
     const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -BOARD_TOP);
     const intersection = new THREE.Vector3();
     if (!this.raycaster.ray.intersectPlane(plane, intersection)) return null;
@@ -294,7 +364,8 @@ export class ChessScene {
     const x = Math.round(worldX);
     const y = Math.round(worldZ);
     if (x < 0 || x > 8 || y < 0 || y > 9) return null;
-    if (Math.abs(worldX - x) > 0.53 || Math.abs(worldZ - y) > 0.53) return null;
+    const tolerance = this.mobile ? 0.60 : 0.53;
+    if (Math.abs(worldX - x) > tolerance || Math.abs(worldZ - y) > tolerance) return null;
     return [x, y];
   }
 
@@ -310,10 +381,7 @@ export class ChessScene {
         const inAnimation = (this.activeMove?.object === object) || this.moveQueue.some((m) => m.object === object);
         if (!object) {
           object = createPieceObject(piece, this.skin, this.intensity === 'off' ? 0.2 : 0.7);
-          if (this.flipped && object.userData.badge) {
-            object.userData.badge.position.set(0, 0.17, -0.36);
-            object.userData.badge.rotation.set(0.46, Math.PI, 0);
-          }
+          this.applyBadgeFacing(object, this.flipped);
           object.position.copy(point);
           object.userData.baseMaterial.opacity = 1;
           object.scale.setScalar(0.001);
@@ -619,26 +687,20 @@ export class ChessScene {
     if (flipped === this.flipped && animate) return;
     this.flipped = flipped;
     this.updateBadgesFacing();
-    this.moveCamera(flipped ? CAMERA_BLACK : CAMERA_RED, TARGET, animate ? 800 : 0);
+    const targetPos = this.getOptimalCameraPosition(flipped);
+    this.moveCamera(targetPos, TARGET, animate ? 800 : 0);
   }
 
   private updateBadgesFacing(): void {
     for (const object of this.pieces.values()) {
-      if (object.userData.badge) {
-        if (this.flipped) {
-          object.userData.badge.position.set(0, 0.17, -0.36);
-          object.userData.badge.rotation.set(0.46, Math.PI, 0);
-        } else {
-          object.userData.badge.position.set(0, 0.17, 0.36);
-          object.userData.badge.rotation.set(-0.46, 0, 0);
-        }
-      }
+      this.applyBadgeFacing(object, this.flipped);
     }
   }
 
   resetCamera(overhead = false): void {
     this.setCinematicEnding(false);
-    this.moveCamera(overhead ? CAMERA_OVERHEAD : this.flipped ? CAMERA_BLACK : CAMERA_RED, TARGET, 700);
+    const targetPos = overhead ? CAMERA_OVERHEAD : this.getOptimalCameraPosition(this.flipped);
+    this.moveCamera(targetPos, TARGET, 700);
   }
 
   private moveCamera(to: THREE.Vector3, target: THREE.Vector3, duration: number): void {
@@ -892,13 +954,17 @@ export class ChessScene {
     if (enabled) {
       this.controls.autoRotate = true;
       this.controls.autoRotateSpeed = 2.0;
+      const aspect = this.camera.aspect;
+      const zoom = aspect < 1.15 ? Math.max(1.0, 1.25 / aspect) : 1.0;
       const targetCam = this.flipped
-        ? new THREE.Vector3(-6.2, 5.8, -8.5)
-        : new THREE.Vector3(6.2, 5.8, 8.5);
+        ? new THREE.Vector3(-6.2 * zoom, 5.8 * zoom, -8.5 * zoom)
+        : new THREE.Vector3(6.2 * zoom, 5.8 * zoom, 8.5 * zoom);
       this.moveCamera(targetCam, new THREE.Vector3(0, BOARD_TOP, 0), 1200);
     } else {
-      this.controls.autoRotate = this.idle;
+      this.controls.autoRotate = false;
       this.controls.autoRotateSpeed = 0.22;
+      const optimalPos = this.getOptimalCameraPosition(this.flipped);
+      this.moveCamera(optimalPos, TARGET, 700);
     }
   }
 
@@ -924,6 +990,7 @@ export class ChessScene {
       victimObj = this.pieces.get(move.captured.id) ?? null;
       if (!victimObj) {
         victimObj = createPieceObject(move.captured, this.skin, this.intensity === 'off' ? 0.2 : 0.45);
+        this.applyBadgeFacing(victimObj, this.flipped);
         this.pieces.set(move.captured.id, victimObj);
         this.piecesRoot.add(victimObj);
       }
@@ -979,8 +1046,17 @@ export class ChessScene {
     const width = this.container.clientWidth;
     const height = this.container.clientHeight;
     if (width === 0 || height === 0) return;
+    this.mobile = width <= 768 || width < height;
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
+
+    if (!this.cameraTween && !this.cinematicEnding) {
+      const targetCam = this.getOptimalCameraPosition(this.flipped);
+      this.camera.position.copy(targetCam);
+      this.controls.target.copy(TARGET);
+      this.controls.update();
+    }
+
     this.renderer.setSize(width, height);
     this.composer?.setSize(width, height);
   }
