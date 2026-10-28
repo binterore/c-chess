@@ -81,7 +81,7 @@ function createBanner(glyph: string, x: number, z: number, rotation: number): TH
 function createTorch(x: number, z: number): { group: THREE.Group; flame: THREE.Mesh; light: THREE.PointLight } {
   const group = new THREE.Group();
   const stone = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.14, 0.24, 1.05, 8),
+    new THREE.CylinderGeometry(0.14, 0.24, 1.05, 12),
     new THREE.MeshStandardMaterial({ color: 0x33251a, roughness: 0.8, metalness: 0.22 })
   );
   stone.position.y = 0.42;
@@ -89,7 +89,7 @@ function createTorch(x: number, z: number): { group: THREE.Group; flame: THREE.M
   group.add(stone);
 
   const bowl = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.22, 0.1, 0.16, 12),
+    new THREE.CylinderGeometry(0.22, 0.1, 0.16, 16),
     new THREE.MeshStandardMaterial({ color: palette.gold, metalness: 0.7, roughness: 0.32 })
   );
   bowl.position.y = 1.02;
@@ -97,20 +97,20 @@ function createTorch(x: number, z: number): { group: THREE.Group; flame: THREE.M
   group.add(bowl);
 
   const flame = new THREE.Mesh(
-    new THREE.ConeGeometry(0.13, 0.42, 10),
+    new THREE.ConeGeometry(0.12, 0.38, 12),
     new THREE.MeshBasicMaterial({
-      color: 0xff7a28,
+      color: 0xff8c36,
       transparent: true,
       opacity: 0.92,
       blending: THREE.AdditiveBlending,
       depthWrite: false
     })
   );
-  flame.position.y = 1.28;
+  flame.position.y = 1.25;
   group.add(flame);
 
-  const light = new THREE.PointLight(0xff7b36, 4.2, 8, 1.8);
-  light.position.y = 1.4;
+  const light = new THREE.PointLight(0xff8c40, 1.8, 6.5, 1.6);
+  light.position.y = 1.35;
   group.add(light);
 
   group.position.set(x, -0.14, z);
@@ -122,13 +122,13 @@ export function createBattlefield(scene: THREE.Scene, intensity: EffectIntensity
   group.name = 'battlefield';
   scene.add(group);
 
-  scene.fog = new THREE.FogExp2(0x131118, 0.015);
+  scene.fog = new THREE.FogExp2(0x131118, 0.016);
 
   const groundTexture = makeStoneTexture();
-  groundTexture.repeat.set(7, 7);
+  groundTexture.repeat.set(12, 12);
   const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(34, 34, 1, 1),
-    new THREE.MeshStandardMaterial({ color: 0x30261d, map: groundTexture, roughness: 0.96, metalness: 0.02 })
+    new THREE.PlaneGeometry(80, 80, 1, 1),
+    new THREE.MeshStandardMaterial({ color: 0x221c17, map: groundTexture, roughness: 0.94, metalness: 0.04 })
   );
   ground.rotation.x = -Math.PI / 2;
   ground.position.y = -0.26;
@@ -259,96 +259,80 @@ export function createBattlefield(scene: THREE.Scene, intensity: EffectIntensity
   moonGroup.position.set(0, 19, -34);
   group.add(moonGroup);
 
-  const sideStoneMaterial = new THREE.MeshStandardMaterial({ color: 0x3b2b1c, roughness: 0.9, metalness: 0.08 });
-  for (let index = 0; index < 7; index += 1) {
-    const x = -9.5 + index * 3.2;
-    const stone = new THREE.Mesh(
-      new THREE.DodecahedronGeometry(0.55 + (index % 3) * 0.18, 0),
-      sideStoneMaterial
+  const balustradeMaterial = new THREE.MeshStandardMaterial({
+    color: 0x2e2722,
+    roughness: 0.72,
+    metalness: 0.15
+  });
+  const goldTrimMaterial = new THREE.MeshStandardMaterial({
+    color: palette.gold,
+    roughness: 0.32,
+    metalness: 0.75
+  });
+
+  const createBalustrade = (zPos: number, rotY: number) => {
+    const balustrade = new THREE.Group();
+    const bottomPlinth = new THREE.Mesh(new THREE.BoxGeometry(16.5, 0.16, 0.32), balustradeMaterial);
+    bottomPlinth.position.y = 0.08;
+    bottomPlinth.castShadow = true;
+    balustrade.add(bottomPlinth);
+
+    const topRail = new THREE.Mesh(new THREE.BoxGeometry(16.5, 0.1, 0.22), balustradeMaterial);
+    topRail.position.y = 0.62;
+    topRail.castShadow = true;
+    balustrade.add(topRail);
+
+    const goldStrip = new THREE.Mesh(new THREE.BoxGeometry(16.5, 0.03, 0.24), goldTrimMaterial);
+    goldStrip.position.y = 0.65;
+    balustrade.add(goldStrip);
+
+    for (let i = 0; i <= 8; i += 1) {
+      const x = -7.5 + i * (15 / 8);
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.78, 0.28), balustradeMaterial);
+      post.position.set(x, 0.39, 0);
+      post.castShadow = true;
+
+      const finial = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 10), goldTrimMaterial);
+      finial.position.set(x, 0.85, 0);
+      finial.scale.set(0.9, 1.2, 0.9);
+      balustrade.add(post, finial);
+    }
+    balustrade.position.set(0, -0.15, zPos);
+    balustrade.rotation.y = rotY;
+    return balustrade;
+  };
+
+  group.add(createBalustrade(-7.6, 0));
+  group.add(createBalustrade(7.6, Math.PI));
+
+  const farMountainMaterial = new THREE.MeshStandardMaterial({
+    color: 0x1b1822,
+    roughness: 1,
+    metalness: 0
+  });
+  for (let index = 0; index < 10; index += 1) {
+    const peak = new THREE.Mesh(
+      new THREE.ConeGeometry(5 + (index % 3) * 2, 9 + (index % 2) * 3, 16),
+      farMountainMaterial
     );
-    stone.position.set(x, -0.18, -7.8 - (index % 2) * 0.5);
-    stone.scale.y = 0.42;
-    stone.rotation.set(index * 0.4, index * 0.8, 0.2);
-    stone.castShadow = true;
-    group.add(stone);
-  }
-  for (let index = 0; index < 7; index += 1) {
-    const x = -9.5 + index * 3.2;
-    const stone = new THREE.Mesh(
-      new THREE.DodecahedronGeometry(0.55 + (index % 3) * 0.18, 0),
-      sideStoneMaterial
-    );
-    stone.position.set(x, -0.18, 7.8 + (index % 2) * 0.5);
-    stone.scale.y = 0.42;
-    stone.rotation.set(index * 0.4, index * 0.8, 0.2);
-    stone.castShadow = true;
-    group.add(stone);
+    peak.position.set(-25 + index * 5.5, 3.5, -36 - (index % 2) * 4);
+    group.add(peak);
   }
 
-  const mountainMaterialNear = new THREE.MeshStandardMaterial({ color: 0x1a1614, roughness: 1, metalness: 0 });
-  const mountainMaterialMid = new THREE.MeshStandardMaterial({ color: 0x221f28, roughness: 1, metalness: 0 });
-  const mountainMaterialFar = new THREE.MeshStandardMaterial({ color: 0x2c2836, roughness: 1, metalness: 0 });
-
-  for (let index = 0; index < 14; index += 1) {
-    const mountain = new THREE.Mesh(
-      new THREE.ConeGeometry(2.8 + (index % 4) * 0.8, 5.5 + (index % 3) * 1.2, 5),
-      mountainMaterialNear
-    );
-    mountain.position.set(-18 + index * 2.8, 2.0 + (index % 3) * 0.5, -17 - (index % 2) * 2.4);
-    mountain.rotation.y = index * 0.4;
-    group.add(mountain);
-  }
-  for (let index = 0; index < 14; index += 1) {
-    const mountain = new THREE.Mesh(
-      new THREE.ConeGeometry(3.6 + (index % 3) * 1.1, 7.5 + (index % 4) * 1.5, 5),
-      mountainMaterialMid
-    );
-    mountain.position.set(-20 + index * 3.2, 3.2 + (index % 3) * 0.6, -24 - (index % 3) * 3);
-    mountain.rotation.y = index * 0.6;
-    group.add(mountain);
-  }
-  for (let index = 0; index < 12; index += 1) {
-    const mountain = new THREE.Mesh(
-      new THREE.ConeGeometry(4.8 + (index % 4) * 1.4, 10 + (index % 3) * 2, 5),
-      mountainMaterialFar
-    );
-    mountain.position.set(-22 + index * 4.0, 4.5 + (index % 3) * 0.8, -32 - (index % 2) * 4);
-    mountain.rotation.y = index * 0.3;
-    group.add(mountain);
-  }
-
-  for (let index = 0; index < 8; index += 1) {
-    const leftPeak = new THREE.Mesh(
-      new THREE.ConeGeometry(3.2 + (index % 3) * 0.9, 6.2 + (index % 3) * 1.2, 5),
-      mountainMaterialNear
-    );
-    leftPeak.position.set(-17 - (index % 2) * 3.5, 2.2 + (index % 3) * 0.5, -12 + index * 3.8);
-    leftPeak.rotation.y = index * 0.5;
-    group.add(leftPeak);
-
-    const rightPeak = new THREE.Mesh(
-      new THREE.ConeGeometry(3.2 + (index % 3) * 0.9, 6.2 + (index % 3) * 1.2, 5),
-      mountainMaterialNear
-    );
-    rightPeak.position.set(17 + (index % 2) * 3.5, 2.2 + (index % 3) * 0.5, -12 + index * 3.8);
-    rightPeak.rotation.y = index * 0.5;
-    group.add(rightPeak);
-  }
-
-  group.add(createBanner(copy.board.seal, -6.9, -4.9, 0.2));
-  group.add(createBanner(copy.board.seal, 6.9, -4.9, -0.2));
-  group.add(createBanner(copy.board.seal, -6.9, 4.9, 2.9));
-  group.add(createBanner(copy.board.seal, 6.9, 4.9, -2.9));
+  group.add(createBanner(copy.board.seal, -7.2, -2.4, 0.1));
+  group.add(createBanner(copy.board.seal, 7.2, -2.4, -0.1));
+  group.add(createBanner(copy.board.seal, -7.2, 2.4, 3.0));
+  group.add(createBanner(copy.board.seal, 7.2, 2.4, -3.0));
 
   const flameList: THREE.Mesh[] = [];
   const torchLights: THREE.PointLight[] = [];
   const torchPositions: Array<[number, number]> = [
-    [-7.2, -4.6],
-    [7.2, -4.6],
-    [-7.4, 0],
-    [7.4, 0],
-    [-7.2, 4.6],
-    [7.2, 4.6]
+    [-7.4, -4.8],
+    [7.4, -4.8],
+    [-7.6, 0],
+    [7.6, 0],
+    [-7.4, 4.8],
+    [7.4, 4.8]
   ];
   torchPositions.forEach(([x, z]) => {
     const torch = createTorch(x, z);
@@ -404,11 +388,11 @@ export function createBattlefield(scene: THREE.Scene, intensity: EffectIntensity
   );
   group.add(embers);
 
-  const ambient = new THREE.HemisphereLight(0x52465c, 0x18141d, 1.4);
+  const ambient = new THREE.HemisphereLight(0x7c7285, 0x241f28, 1.25);
   scene.add(ambient);
 
-  const keyLight = new THREE.DirectionalLight(0xffe0b2, 5.2);
-  keyLight.position.set(-8, 15, 11);
+  const keyLight = new THREE.DirectionalLight(0xffecd4, 2.6);
+  keyLight.position.set(-8, 15, 9);
   keyLight.castShadow = !mobile && intensity !== 'off';
   keyLight.shadow.mapSize.set(mobile ? 1024 : 2048, mobile ? 1024 : 2048);
   keyLight.shadow.camera.left = -11;
@@ -417,20 +401,12 @@ export function createBattlefield(scene: THREE.Scene, intensity: EffectIntensity
   keyLight.shadow.camera.bottom = -11;
   keyLight.shadow.camera.near = 2;
   keyLight.shadow.camera.far = 40;
-  keyLight.shadow.bias = -0.0004;
+  keyLight.shadow.bias = -0.0003;
   scene.add(keyLight);
 
-  const moonRim = new THREE.DirectionalLight(0x789ac2, 2.5);
-  moonRim.position.set(0, 18, -25);
-  scene.add(moonRim);
-
-  const redRim = new THREE.PointLight(0xa32d1a, 8, 15, 2);
-  redRim.position.set(-7, 4.5, -2);
-  scene.add(redRim);
-
-  const tealRim = new THREE.PointLight(0x296f68, 7, 15, 2);
-  tealRim.position.set(7, 4, 4);
-  scene.add(tealRim);
+  const fillLight = new THREE.DirectionalLight(0x6582a4, 1.0);
+  fillLight.position.set(7, 12, -8);
+  scene.add(fillLight);
 
   const update = (elapsed: number, delta: number, currentIntensity: EffectIntensity) => {
     flameList.forEach((flame, index) => {

@@ -75,7 +75,7 @@ export function makeWoodTexture(color: 'red' | 'black'): THREE.CanvasTexture {
 export function makeGlyphTexture(
   glyph: string,
   color: string,
-  glow: string,
+  outlineColor: string,
   size = 512,
   plate = false
 ): THREE.CanvasTexture {
@@ -86,54 +86,43 @@ export function makeGlyphTexture(
   context.clearRect(0, 0, size, size);
 
   if (plate) {
-    const gradient = context.createRadialGradient(size * 0.44, size * 0.38, size * 0.05, size / 2, size / 2, size * 0.48);
-    gradient.addColorStop(0, 'rgba(255, 235, 185, 0.28)');
-    gradient.addColorStop(0.65, 'rgba(0, 0, 0, 0.04)');
-    gradient.addColorStop(1, 'rgba(0, 0, 0, 0.32)');
+    const gradient = context.createRadialGradient(size * 0.48, size * 0.45, size * 0.1, size / 2, size / 2, size * 0.48);
+    gradient.addColorStop(0, 'rgba(255, 250, 240, 0.06)');
+    gradient.addColorStop(0.8, 'rgba(0, 0, 0, 0.05)');
+    gradient.addColorStop(1, 'rgba(0, 0, 0, 0.35)');
     context.fillStyle = gradient;
     context.beginPath();
-    context.arc(size / 2, size / 2, size * 0.47, 0, Math.PI * 2);
+    context.arc(size / 2, size / 2, size * 0.46, 0, Math.PI * 2);
     context.fill();
   }
 
-  context.strokeStyle = 'rgba(0, 0, 0, 0.45)';
-  context.lineWidth = size * 0.032;
+  context.strokeStyle = outlineColor;
+  context.lineWidth = size * 0.026;
   context.beginPath();
-  context.arc(size / 2 + size * 0.005, size / 2 + size * 0.006, size * 0.44, 0, Math.PI * 2);
+  context.arc(size / 2 + size * 0.005, size / 2 + size * 0.006, size * 0.43, 0, Math.PI * 2);
   context.stroke();
 
   context.strokeStyle = color;
-  context.lineWidth = size * 0.024;
+  context.lineWidth = size * 0.02;
   context.beginPath();
-  context.arc(size / 2, size / 2, size * 0.44, 0, Math.PI * 2);
+  context.arc(size / 2, size / 2, size * 0.43, 0, Math.PI * 2);
   context.stroke();
 
   context.strokeStyle = color;
-  context.lineWidth = size * 0.008;
+  context.lineWidth = size * 0.007;
   context.beginPath();
-  context.arc(size / 2, size / 2, size * 0.41, 0, Math.PI * 2);
+  context.arc(size / 2, size / 2, size * 0.40, 0, Math.PI * 2);
   context.stroke();
-
-  const markDist = size * 0.425;
-  const markAngles = [0, Math.PI * 0.5, Math.PI, Math.PI * 1.5];
-  context.fillStyle = color;
-  markAngles.forEach((angle) => {
-    const mx = size / 2 + Math.cos(angle) * markDist;
-    const my = size / 2 + Math.sin(angle) * markDist;
-    context.beginPath();
-    context.arc(mx, my, size * 0.016, 0, Math.PI * 2);
-    context.fill();
-  });
 
   context.textAlign = 'center';
   context.textBaseline = 'middle';
-  context.font = `900 ${size * 0.7}px "Kaiti SC", "STKaiti", "KaiTi", "Songti SC", "Noto Serif SC", serif`;
+  context.font = `900 ${size * 0.72}px "Kaiti SC", "STKaiti", "KaiTi", "Songti SC", "Noto Serif SC", serif`;
 
-  context.fillStyle = 'rgba(0, 0, 0, 0.72)';
-  context.fillText(glyph, size / 2 + size * 0.008, size * 0.51 + size * 0.01);
+  context.strokeStyle = outlineColor;
+  context.lineWidth = size * 0.045;
+  context.lineJoin = 'round';
+  context.strokeText(glyph, size / 2, size * 0.51);
 
-  context.shadowColor = glow;
-  context.shadowBlur = size * 0.12;
   context.fillStyle = color;
   context.fillText(glyph, size / 2, size * 0.51);
 
