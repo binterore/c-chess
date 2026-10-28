@@ -41,6 +41,8 @@ body {
   background: var(--ink);
   color: var(--ivory);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
   user-select: none;
 }
 
@@ -195,7 +197,7 @@ input {
     inset 0 0 0 3px rgba(20, 8, 6, 0.5),
     inset 0 0 18px rgba(255, 192, 85, 0.12),
     0 8px 24px rgba(0, 0, 0, 0.3);
-  clip-path: polygon(8% 0, 92% 0, 100% 8%, 100% 92%, 92% 100%, 8% 100%, 0 92%, 0 8%);
+  border-radius: 12px;
 }
 
 .brand-words {
@@ -382,7 +384,7 @@ input {
   letter-spacing: 0.18em;
   background: linear-gradient(105deg, #b78b4f, #e6c27e 53%, #bd8d4f);
   box-shadow: 0 14px 35px rgba(0, 0, 0, 0.28);
-  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  border-radius: 9999px;
   transition: 0.28s ease;
 }
 
@@ -493,7 +495,7 @@ input {
     rgba(13, 11, 8, 0.84);
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.36);
   backdrop-filter: blur(18px);
-  clip-path: polygon(0 12px, 12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%);
+  border-radius: 20px;
   animation: dockReveal 0.85s 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
@@ -502,6 +504,7 @@ input {
   position: absolute;
   inset: 7px;
   border: 1px solid rgba(210, 170, 104, 0.07);
+  border-radius: 14px;
   pointer-events: none;
 }
 
@@ -740,7 +743,7 @@ input {
     radial-gradient(circle at 100% 0, rgba(143, 86, 39, 0.12), transparent 36%),
     linear-gradient(145deg, rgba(28, 23, 17, 0.985), rgba(11, 9, 7, 0.99));
   box-shadow: 0 38px 100px rgba(0, 0, 0, 0.6), inset 0 0 0 5px rgba(0, 0, 0, 0.22);
-  clip-path: polygon(0 15px, 15px 0, calc(100% - 15px) 0, 100% 15px, 100% calc(100% - 15px), calc(100% - 15px) 100%, 15px 100%, 0 calc(100% - 15px));
+  border-radius: 24px;
   animation: panelEnter 0.42s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
@@ -751,6 +754,7 @@ input {
   z-index: -1;
   inset: 8px;
   border: 1px solid rgba(220, 181, 112, 0.08);
+  border-radius: 18px;
   pointer-events: none;
 }
 
@@ -1017,7 +1021,7 @@ input {
   font-weight: 700;
   letter-spacing: 0.17em;
   background: linear-gradient(100deg, #a9793d, #dfb86f 48%, #a9773b);
-  clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
+  border-radius: 9999px;
   transition: 0.23s ease;
 }
 
@@ -1541,13 +1545,14 @@ input {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  padding: 7px 17px 7px 8px;
-  border: 1px solid rgba(210, 170, 104, 0.18);
-  background: rgba(13, 11, 8, 0.76);
-  box-shadow: 0 10px 35px rgba(0, 0, 0, 0.23);
-  backdrop-filter: blur(16px);
+  padding: 6px 18px 6px 8px;
+  border: 1px solid rgba(225, 195, 140, 0.22);
+  border-radius: 9999px;
+  background: rgba(16, 12, 9, 0.78);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 235, 190, 0.1);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
   transform: translateX(-50%);
-  clip-path: polygon(7px 0, calc(100% - 7px) 0, 100% 7px, 100% calc(100% - 7px), calc(100% - 7px) 100%, 7px 100%, 0 calc(100% - 7px), 0 7px);
 }
 
 .turn-orb {
@@ -2245,7 +2250,7 @@ input {
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.42);
   backdrop-filter: blur(22px);
   transform: translate(-50%, -50%);
-  clip-path: polygon(0 12px, 12px 0, calc(100% - 12px) 0, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px));
+  border-radius: 24px;
   animation: panelEnter 0.45s ease both;
 }
 
@@ -2693,7 +2698,7 @@ input {
   background: linear-gradient(145deg, rgba(28, 23, 17, 0.99), rgba(10, 8, 6, 0.99));
   box-shadow: 0 32px 90px rgba(0, 0, 0, 0.55);
   text-align: center;
-  clip-path: polygon(0 12px, 12px 0, calc(100% - 12px) 0, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px));
+  border-radius: 24px;
   animation: panelEnter 0.36s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
@@ -2807,7 +2812,7 @@ input {
     radial-gradient(circle at 50% 29%, rgba(174, 116, 47, 0.12), transparent 31%),
     linear-gradient(145deg, rgba(28, 23, 16, 0.97), rgba(9, 7, 5, 0.985));
   box-shadow: 0 40px 120px rgba(0, 0, 0, 0.67), inset 0 0 0 5px rgba(0, 0, 0, 0.18);
-  clip-path: polygon(0 18px, 18px 0, calc(100% - 18px) 0, 100% 18px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0 calc(100% - 18px));
+  border-radius: 28px;
   animation: resultEnter 0.72s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 

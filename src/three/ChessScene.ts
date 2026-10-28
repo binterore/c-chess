@@ -800,7 +800,14 @@ export class ChessScene {
       const baseY = start.y + (BOARD_TOP - start.y) * progress;
       const arcHeight = piece.type === 'horse' ? 0.65 : piece.type === 'cannon' ? 0.48 : 0.22;
       object.position.y = baseY + Math.sin(Math.PI * raw) * arcHeight;
-      if (piece.type === 'horse') object.rotation.z = Math.sin(raw * Math.PI) * 0.04;
+
+      // 拟真行棋动力学：微小前倾与悬停平稳落地
+      const tiltMagnitude = Math.sin(Math.PI * raw) * 0.045;
+      const dirX = delta.x === 0 ? 0 : delta.x > 0 ? 1 : -1;
+      const dirZ = delta.z === 0 ? 0 : delta.z > 0 ? 1 : -1;
+      object.rotation.z = -dirX * tiltMagnitude;
+      object.rotation.x = dirZ * tiltMagnitude;
+      if (piece.type === 'horse') object.rotation.z += Math.sin(raw * Math.PI) * 0.04;
     }
 
     if (raw >= 0.92) this.impact(move, raw);

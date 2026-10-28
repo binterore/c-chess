@@ -7,6 +7,7 @@
 <p><strong>以科技向人文致敬，以触觉重塑千年对弈。</strong></p>
 
 <p>
+  <img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="MIT License" />
   <img src="https://img.shields.io/badge/Release-Commercial_Ready-e5a93c?style=for-the-badge" alt="Commercial Ready" />
   <img src="https://img.shields.io/badge/Three.js-WebGL_3D-black?style=for-the-badge&logo=three.js" alt="Three.js" />
   <img src="https://img.shields.io/badge/Engine-Negamax_NNUE-crimson?style=for-the-badge" alt="Negamax" />
@@ -195,6 +196,12 @@ c-chess/
 ├── tests/                 # 规则引擎与残局自动化用例
 └── public/                # 离线 PWA 支持 (Service Worker)
 ```
+
+<br />
+
+## 📄 开源许可证 · License
+
+本项目采用 [MIT License](LICENSE) 商业开源许可协议。欢迎开发者、设计师及象棋爱好者学习、商用、分发与二次创作。
 
 <br />
 
