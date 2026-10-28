@@ -309,6 +309,10 @@ export class ChessScene {
         const inAnimation = (this.activeMove?.object === object) || this.moveQueue.some((m) => m.object === object);
         if (!object) {
           object = createPieceObject(piece, this.skin, this.intensity === 'off' ? 0.2 : 0.7);
+          if (this.flipped && object.userData.badge) {
+            object.userData.badge.position.set(0, 0.17, -0.36);
+            object.userData.badge.rotation.set(0.46, Math.PI, 0);
+          }
           object.position.copy(point);
           object.userData.baseMaterial.opacity = 1;
           object.scale.setScalar(0.001);
@@ -555,7 +559,22 @@ export class ChessScene {
   setFlipped(flipped: boolean, animate = true): void {
     if (flipped === this.flipped && animate) return;
     this.flipped = flipped;
+    this.updateBadgesFacing();
     this.moveCamera(flipped ? CAMERA_BLACK : CAMERA_RED, TARGET, animate ? 800 : 0);
+  }
+
+  private updateBadgesFacing(): void {
+    for (const object of this.pieces.values()) {
+      if (object.userData.badge) {
+        if (this.flipped) {
+          object.userData.badge.position.set(0, 0.17, -0.36);
+          object.userData.badge.rotation.set(0.46, Math.PI, 0);
+        } else {
+          object.userData.badge.position.set(0, 0.17, 0.36);
+          object.userData.badge.rotation.set(-0.46, 0, 0);
+        }
+      }
+    }
   }
 
   resetCamera(overhead = false): void {

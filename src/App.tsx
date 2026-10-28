@@ -76,8 +76,8 @@ function storedIntensity(): EffectIntensity {
 }
 
 function storedSkin(): BoardSkin {
-  const item = localStorage.getItem('jiangjie-skin-v3');
-  return item === 'figurine' ? 'figurine' : 'classic';
+  const item = localStorage.getItem('jiangjie-skin-v4');
+  return item === 'classic' ? 'classic' : 'figurine';
 }
 
 function makeVisual(move: Move, intensity: EffectIntensity, counter: number): VisualMove {
@@ -550,7 +550,7 @@ export function App() {
 
   useEffect(() => {
     localStorage.setItem('jiangjie-intensity', intensity);
-    localStorage.setItem('jiangjie-skin-v3', skin);
+    localStorage.setItem('jiangjie-skin-v4', skin);
   }, [intensity, skin]);
 
   useEffect(() => {

@@ -21,10 +21,12 @@ export interface PieceObject extends THREE.Group {
     glyphMaterial: THREE.MeshStandardMaterial;
     glyph: THREE.Mesh;
     figurine: THREE.Group;
+    figurineMaterials?: Record<MaterialKind, THREE.Material>;
+    intensity: number;
     selectionRing: THREE.Mesh;
     base: THREE.Mesh;
     rim: THREE.Mesh;
-    badge?: THREE.Mesh;
+    badge?: THREE.Group;
   };
 }
 
@@ -98,104 +100,147 @@ function mergeParts(parts: Part[], materials: Record<MaterialKind, THREE.Materia
 
 function generalParts(): Part[] {
   const parts: Part[] = [];
-  addPart(parts, new THREE.ConeGeometry(0.27, 0.48, 6), 'dark', [0, 0.24, 0.09], [0.12, 0, 0]);
-  addPart(parts, new THREE.CylinderGeometry(0.15, 0.22, 0.34, 7), 'primary', [0, 0.42, 0]);
-  addPart(parts, new THREE.SphereGeometry(0.135, 12, 9), 'skin', [0, 0.63, 0]);
-  addPart(parts, new THREE.ConeGeometry(0.17, 0.11, 7), 'metal', [0, 0.76, 0]);
-  addPart(parts, new THREE.BoxGeometry(0.32, 0.34, 0.13), 'primary', [0, 0.46, 0.19]);
-  addPart(parts, new THREE.BoxGeometry(0.035, 0.52, 0.035), 'metal', [0.25, 0.34, 0.06], [0, 0, -0.12]);
-  addPart(parts, new THREE.BoxGeometry(0.17, 0.035, 0.035), 'metal', [0.24, 0.48, 0.06], [0, 0, -0.12]);
-  addPart(parts, new THREE.TorusGeometry(0.13, 0.018, 5, 12), 'metal', [0, 0.52, 0.19], [0, 0, 0]);
+  addPart(parts, new THREE.CylinderGeometry(0.36, 0.40, 0.05, 8), 'dark', [0, 0.025, 0]);
+  addPart(parts, new THREE.CylinderGeometry(0.32, 0.36, 0.02, 8), 'metal', [0, 0.06, 0]);
+  addPart(parts, new THREE.BoxGeometry(0.11, 0.18, 0.14), 'dark', [-0.11, 0.16, 0.02]);
+  addPart(parts, new THREE.BoxGeometry(0.11, 0.18, 0.14), 'dark', [0.11, 0.16, 0.02]);
+  addPart(parts, new THREE.BoxGeometry(0.10, 0.12, 0.04), 'metal', [-0.11, 0.17, 0.08]);
+  addPart(parts, new THREE.BoxGeometry(0.10, 0.12, 0.04), 'metal', [0.11, 0.17, 0.08]);
+  addPart(parts, new THREE.CylinderGeometry(0.24, 0.31, 0.26, 8), 'primary', [0, 0.35, 0]);
+  addPart(parts, new THREE.CylinderGeometry(0.25, 0.24, 0.08, 8), 'dark', [0, 0.48, 0]);
+  addPart(parts, new THREE.BoxGeometry(0.14, 0.10, 0.08), 'metal', [0, 0.48, 0.14]);
+  addPart(parts, new THREE.BoxGeometry(0.36, 0.28, 0.22), 'primary', [0, 0.65, 0.02]);
+  addPart(parts, new THREE.BoxGeometry(0.26, 0.24, 0.06), 'metal', [0, 0.66, 0.12]);
+  addPart(parts, new THREE.SphereGeometry(0.11, 8, 8), 'metal', [-0.24, 0.74, 0.02]);
+  addPart(parts, new THREE.SphereGeometry(0.11, 8, 8), 'metal', [0.24, 0.74, 0.02]);
+  addPart(parts, new THREE.BoxGeometry(0.42, 0.58, 0.06), 'primary', [0, 0.54, -0.11], [0.12, 0, 0]);
+  addPart(parts, new THREE.SphereGeometry(0.11, 10, 8), 'skin', [0, 0.86, 0.03]);
+  addPart(parts, new THREE.CylinderGeometry(0.11, 0.13, 0.16, 8), 'metal', [0, 0.96, 0.02]);
+  addPart(parts, new THREE.ConeGeometry(0.06, 0.22, 6), 'primary', [0, 1.10, 0.02]);
+  addPart(parts, new THREE.BoxGeometry(0.04, 0.18, 0.12), 'metal', [-0.14, 0.98, 0.02], [0, 0, 0.3]);
+  addPart(parts, new THREE.BoxGeometry(0.04, 0.18, 0.12), 'metal', [0.14, 0.98, 0.02], [0, 0, -0.3]);
+  addPart(parts, new THREE.CylinderGeometry(0.018, 0.018, 0.76, 6), 'metal', [0.18, 0.44, 0.16], [0, 0, -0.1]);
+  addPart(parts, new THREE.BoxGeometry(0.14, 0.04, 0.04), 'metal', [0.18, 0.78, 0.16]);
+  addPart(parts, new THREE.SphereGeometry(0.035, 6, 6), 'metal', [0.18, 0.88, 0.16]);
   return parts;
 }
 
 function advisorParts(): Part[] {
   const parts: Part[] = [];
-  addPart(parts, new THREE.ConeGeometry(0.25, 0.52, 7), 'primary', [0, 0.28, 0]);
-  addPart(parts, new THREE.CylinderGeometry(0.09, 0.14, 0.2, 7), 'primary', [0, 0.52, 0]);
-  addPart(parts, new THREE.SphereGeometry(0.12, 12, 8), 'skin', [0, 0.67, 0]);
-  addPart(parts, new THREE.ConeGeometry(0.13, 0.16, 7), 'dark', [0, 0.8, 0]);
-  addPart(parts, new THREE.TorusGeometry(0.21, 0.012, 4, 20), 'metal', [0, 0.28, 0], [Math.PI / 2, 0, 0]);
-  addPart(parts, new THREE.CylinderGeometry(0.012, 0.012, 0.43, 6), 'metal', [0.22, 0.4, 0.08]);
-  addPart(parts, new THREE.CircleGeometry(0.1, 16), 'metal', [0.22, 0.63, 0.08], [0, 0, 0]);
+  addPart(parts, new THREE.CylinderGeometry(0.36, 0.40, 0.05, 8), 'dark', [0, 0.025, 0]);
+  addPart(parts, new THREE.CylinderGeometry(0.20, 0.28, 0.46, 8), 'primary', [0, 0.28, 0]);
+  addPart(parts, new THREE.BoxGeometry(0.28, 0.26, 0.18), 'dark', [0, 0.58, 0]);
+  addPart(parts, new THREE.BoxGeometry(0.20, 0.20, 0.05), 'metal', [0, 0.58, 0.09]);
+  addPart(parts, new THREE.BoxGeometry(0.09, 0.14, 0.12), 'metal', [-0.18, 0.64, 0]);
+  addPart(parts, new THREE.BoxGeometry(0.09, 0.14, 0.12), 'metal', [0.18, 0.64, 0]);
+  addPart(parts, new THREE.SphereGeometry(0.10, 10, 8), 'skin', [0, 0.77, 0.02]);
+  addPart(parts, new THREE.ConeGeometry(0.12, 0.20, 7), 'metal', [0, 0.92, 0.02]);
+  addPart(parts, new THREE.CylinderGeometry(0.012, 0.012, 0.24, 6), 'primary', [-0.08, 1.05, 0], [0, 0, 0.2]);
+  addPart(parts, new THREE.CylinderGeometry(0.012, 0.012, 0.24, 6), 'primary', [0.08, 1.05, 0], [0, 0, -0.2]);
+  addPart(parts, new THREE.CylinderGeometry(0.016, 0.016, 0.98, 6), 'dark', [0.20, 0.49, 0.12]);
+  addPart(parts, new THREE.ConeGeometry(0.06, 0.22, 6), 'metal', [0.20, 1.06, 0.12]);
+  addPart(parts, new THREE.BoxGeometry(0.12, 0.10, 0.02), 'metal', [0.24, 0.92, 0.12]);
   return parts;
 }
 
 function elephantParts(): Part[] {
   const parts: Part[] = [];
-  addPart(parts, new THREE.SphereGeometry(0.28, 12, 9), 'primary', [0, 0.4, 0], [0, 0, 0], [1, 0.8, 1.2]);
-  addPart(parts, new THREE.SphereGeometry(0.2, 10, 8), 'primary', [0, 0.46, 0.27], [0, 0, 0], [1, 1, 0.9]);
-  addPart(parts, new THREE.SphereGeometry(0.08, 8, 6), 'skin', [0.12, 0.45, 0.43]);
-  addPart(parts, new THREE.SphereGeometry(0.08, 8, 6), 'skin', [-0.12, 0.45, 0.43]);
-  addPart(parts, new THREE.CylinderGeometry(0.04, 0.055, 0.3, 7), 'skin', [0, 0.28, 0.45], [0.3, 0, 0]);
-  addPart(parts, new THREE.ConeGeometry(0.035, 0.16, 6), 'metal', [0.16, 0.37, 0.46], [0.1, 0, -0.3]);
-  addPart(parts, new THREE.ConeGeometry(0.035, 0.16, 6), 'metal', [-0.16, 0.37, 0.46], [0.1, 0, 0.3]);
-  for (const x of [-0.18, 0.18]) {
-    addPart(parts, new THREE.CylinderGeometry(0.06, 0.075, 0.3, 7), 'dark', [x, 0.18, 0.12]);
-    addPart(parts, new THREE.CylinderGeometry(0.06, 0.075, 0.3, 7), 'dark', [x, 0.18, -0.13]);
-  }
-  addPart(parts, new THREE.TorusGeometry(0.17, 0.026, 5, 12), 'metal', [0, 0.52, 0.23], [0, 0, 0], [1.2, 0.8, 1]);
+  addPart(parts, new THREE.CylinderGeometry(0.38, 0.42, 0.05, 8), 'dark', [0, 0.025, 0]);
+  const legPositions: Array<[number, number]> = [[-0.16, 0.14], [0.16, 0.14], [-0.16, -0.14], [0.16, -0.14]];
+  legPositions.forEach(([lx, lz]) => {
+    addPart(parts, new THREE.CylinderGeometry(0.065, 0.08, 0.26, 8), 'dark', [lx, 0.16, lz]);
+    addPart(parts, new THREE.CylinderGeometry(0.075, 0.082, 0.06, 8), 'metal', [lx, 0.12, lz]);
+  });
+  addPart(parts, new THREE.BoxGeometry(0.42, 0.32, 0.48), 'primary', [0, 0.38, 0]);
+  addPart(parts, new THREE.SphereGeometry(0.18, 10, 8), 'primary', [0, 0.42, 0.26], [0, 0, 0], [1, 1, 0.9]);
+  addPart(parts, new THREE.BoxGeometry(0.14, 0.18, 0.03), 'dark', [-0.22, 0.45, 0.20], [0, 0.3, 0.1]);
+  addPart(parts, new THREE.BoxGeometry(0.14, 0.18, 0.03), 'dark', [0.22, 0.45, 0.20], [0, -0.3, -0.1]);
+  addPart(parts, new THREE.CylinderGeometry(0.04, 0.06, 0.28, 8), 'skin', [0, 0.28, 0.38], [0.35, 0, 0]);
+  addPart(parts, new THREE.CylinderGeometry(0.025, 0.04, 0.14, 8), 'skin', [0, 0.18, 0.48], [1.1, 0, 0]);
+  addPart(parts, new THREE.ConeGeometry(0.032, 0.22, 6), 'metal', [-0.13, 0.32, 0.42], [0.4, 0, -0.3]);
+  addPart(parts, new THREE.ConeGeometry(0.032, 0.22, 6), 'metal', [0.13, 0.32, 0.42], [0.4, 0, 0.3]);
+  addPart(parts, new THREE.BoxGeometry(0.36, 0.20, 0.34), 'metal', [0, 0.60, -0.02]);
+  addPart(parts, new THREE.CylinderGeometry(0.014, 0.014, 0.42, 6), 'dark', [0, 0.85, -0.14]);
+  addPart(parts, new THREE.BoxGeometry(0.24, 0.16, 0.02), 'primary', [-0.10, 0.95, -0.14]);
   return parts;
 }
 
 function horseParts(): Part[] {
   const parts: Part[] = [];
-  addPart(parts, new THREE.SphereGeometry(0.24, 10, 8), 'primary', [0, 0.38, -0.02], [0, 0, 0], [0.8, 0.75, 1.25]);
-  addPart(parts, new THREE.CylinderGeometry(0.11, 0.17, 0.38, 7), 'primary', [0, 0.57, 0.17], [0.28, 0, 0]);
-  addPart(parts, new THREE.SphereGeometry(0.15, 10, 8), 'primary', [0, 0.72, 0.34], [0.12, 0, 0], [0.8, 0.9, 1.3]);
-  addPart(parts, new THREE.BoxGeometry(0.09, 0.2, 0.08), 'metal', [0.12, 0.9, 0.31], [0.15, 0, 0.25]);
-  addPart(parts, new THREE.BoxGeometry(0.09, 0.2, 0.08), 'metal', [-0.12, 0.9, 0.31], [0.15, 0, -0.25]);
-  addPart(parts, new THREE.BoxGeometry(0.26, 0.11, 0.18), 'metal', [0, 0.62, 0.42], [0.16, 0, 0]);
-  for (const x of [-0.15, 0.15]) {
-    addPart(parts, new THREE.CylinderGeometry(0.038, 0.055, 0.34, 6), 'dark', [x, 0.18, 0.2], [-0.12, 0, 0]);
-    addPart(parts, new THREE.CylinderGeometry(0.038, 0.05, 0.32, 6), 'dark', [x, 0.18, -0.19], [0.1, 0, 0]);
-  }
-  addPart(parts, new THREE.CylinderGeometry(0.018, 0.018, 0.94, 6), 'metal', [0.19, 0.5, 0.15], [0, 0, -0.12]);
-  addPart(parts, new THREE.ConeGeometry(0.06, 0.18, 6), 'metal', [0.25, 0.97, 0.15], [0, 0, -0.12]);
+  addPart(parts, new THREE.CylinderGeometry(0.38, 0.42, 0.05, 8), 'dark', [0, 0.025, 0]);
+  addPart(parts, new THREE.CylinderGeometry(0.04, 0.05, 0.32, 6), 'dark', [-0.14, 0.18, 0.18], [-0.15, 0, 0]);
+  addPart(parts, new THREE.CylinderGeometry(0.04, 0.05, 0.32, 6), 'dark', [0.14, 0.18, 0.18], [-0.15, 0, 0]);
+  addPart(parts, new THREE.CylinderGeometry(0.045, 0.05, 0.32, 6), 'dark', [-0.14, 0.18, -0.18], [0.15, 0, 0]);
+  addPart(parts, new THREE.CylinderGeometry(0.045, 0.05, 0.32, 6), 'dark', [0.14, 0.18, -0.18], [0.15, 0, 0]);
+  addPart(parts, new THREE.BoxGeometry(0.32, 0.26, 0.48), 'primary', [0, 0.40, 0]);
+  addPart(parts, new THREE.BoxGeometry(0.34, 0.08, 0.28), 'metal', [0, 0.46, -0.02]);
+  addPart(parts, new THREE.CylinderGeometry(0.10, 0.14, 0.36, 7), 'primary', [0, 0.60, 0.16], [0.42, 0, 0]);
+  addPart(parts, new THREE.BoxGeometry(0.14, 0.18, 0.26), 'dark', [0, 0.74, 0.28], [0.22, 0, 0]);
+  addPart(parts, new THREE.ConeGeometry(0.07, 0.14, 6), 'metal', [0, 0.86, 0.32]);
+  addPart(parts, new THREE.BoxGeometry(0.05, 0.28, 0.08), 'primary', [0, 0.72, 0.06], [-0.3, 0, 0]);
+  addPart(parts, new THREE.CylinderGeometry(0.016, 0.016, 0.98, 6), 'metal', [0.20, 0.52, 0.10], [0, 0, -0.12]);
+  addPart(parts, new THREE.ConeGeometry(0.05, 0.20, 6), 'metal', [0.26, 1.05, 0.10], [0, 0, -0.12]);
+  addPart(parts, new THREE.BoxGeometry(0.22, 0.14, 0.02), 'primary', [0.38, 0.95, 0.10]);
   return parts;
 }
 
 function chariotParts(): Part[] {
   const parts: Part[] = [];
-  addPart(parts, new THREE.BoxGeometry(0.43, 0.22, 0.58), 'primary', [0, 0.31, 0]);
-  addPart(parts, new THREE.BoxGeometry(0.36, 0.2, 0.3), 'dark', [0, 0.5, -0.04]);
-  addPart(parts, new THREE.CylinderGeometry(0.17, 0.17, 0.07, 16), 'metal', [0.26, 0.28, 0.17], [0, 0, Math.PI / 2]);
-  addPart(parts, new THREE.CylinderGeometry(0.17, 0.17, 0.07, 16), 'metal', [-0.26, 0.28, 0.17], [0, 0, Math.PI / 2]);
-  addPart(parts, new THREE.CylinderGeometry(0.17, 0.17, 0.07, 16), 'metal', [0.26, 0.28, -0.17], [0, 0, Math.PI / 2]);
-  addPart(parts, new THREE.CylinderGeometry(0.17, 0.17, 0.07, 16), 'metal', [-0.26, 0.28, -0.17], [0, 0, Math.PI / 2]);
-  addPart(parts, new THREE.CylinderGeometry(0.018, 0.018, 0.9, 5), 'dark', [-0.18, 0.62, -0.2]);
-  addPart(parts, new THREE.PlaneGeometry(0.22, 0.28), 'primary', [-0.29, 0.94, -0.2], [0, Math.PI / 2, 0]);
-  addPart(parts, new THREE.ConeGeometry(0.06, 0.16, 6), 'metal', [0.18, 0.99, 0.1]);
-  addPart(parts, new THREE.CylinderGeometry(0.018, 0.018, 0.78, 5), 'dark', [0.18, 0.59, 0.1]);
+  addPart(parts, new THREE.CylinderGeometry(0.38, 0.42, 0.05, 8), 'dark', [0, 0.025, 0]);
+  addPart(parts, new THREE.BoxGeometry(0.44, 0.24, 0.56), 'primary', [0, 0.26, 0]);
+  addPart(parts, new THREE.BoxGeometry(0.46, 0.06, 0.58), 'metal', [0, 0.37, 0]);
+  const wheelOffsets: Array<[number, number]> = [[0.28, 0.18], [-0.28, 0.18], [0.28, -0.18], [-0.28, -0.18]];
+  wheelOffsets.forEach(([wx, wz]) => {
+    addPart(parts, new THREE.CylinderGeometry(0.18, 0.18, 0.07, 16), 'metal', [wx, 0.22, wz], [0, 0, Math.PI / 2]);
+    addPart(parts, new THREE.ConeGeometry(0.04, 0.12, 6), 'metal', [wx > 0 ? wx + 0.08 : wx - 0.08, 0.22, wz], [0, 0, wx > 0 ? -Math.PI / 2 : Math.PI / 2]);
+  });
+  addPart(parts, new THREE.BoxGeometry(0.36, 0.22, 0.36), 'dark', [0, 0.46, 0]);
+  addPart(parts, new THREE.CylinderGeometry(0.02, 0.02, 0.46, 6), 'metal', [0, 0.62, 0.08], [Math.PI / 2, 0, 0]);
+  addPart(parts, new THREE.BoxGeometry(0.42, 0.03, 0.06), 'metal', [0, 0.62, 0.24]);
+  addPart(parts, new THREE.CylinderGeometry(0.016, 0.016, 0.88, 6), 'dark', [-0.16, 0.66, -0.18]);
+  addPart(parts, new THREE.BoxGeometry(0.24, 0.22, 0.02), 'primary', [-0.28, 0.96, -0.18]);
   return parts;
 }
 
 function cannonParts(): Part[] {
   const parts: Part[] = [];
-  addPart(parts, new THREE.BoxGeometry(0.4, 0.2, 0.55), 'dark', [0, 0.28, 0]);
-  addPart(parts, new THREE.CylinderGeometry(0.2, 0.2, 0.07, 18), 'metal', [0.28, 0.25, 0.15], [0, 0, Math.PI / 2]);
-  addPart(parts, new THREE.CylinderGeometry(0.2, 0.2, 0.07, 18), 'metal', [-0.28, 0.25, 0.15], [0, 0, Math.PI / 2]);
-  addPart(parts, new THREE.CylinderGeometry(0.1, 0.14, 0.64, 12), 'primary', [0, 0.56, 0.03], [Math.PI / 2, 0, 0]);
-  addPart(parts, new THREE.CylinderGeometry(0.11, 0.11, 0.16, 12), 'metal', [0, 0.62, 0.38], [Math.PI / 2, 0, 0]);
-  addPart(parts, new THREE.TorusGeometry(0.12, 0.024, 5, 14), 'metal', [0, 0.64, 0.47], [0, 0, 0]);
-  addPart(parts, new THREE.CylinderGeometry(0.035, 0.045, 0.28, 7), 'metal', [0, 0.36, -0.2], [0.5, 0, 0]);
+  addPart(parts, new THREE.CylinderGeometry(0.38, 0.42, 0.05, 8), 'dark', [0, 0.025, 0]);
+  addPart(parts, new THREE.BoxGeometry(0.38, 0.18, 0.52), 'dark', [0, 0.22, -0.04], [0.15, 0, 0]);
+  addPart(parts, new THREE.CylinderGeometry(0.22, 0.22, 0.08, 18), 'metal', [0.28, 0.22, 0.12], [0, 0, Math.PI / 2]);
+  addPart(parts, new THREE.CylinderGeometry(0.22, 0.22, 0.08, 18), 'metal', [-0.28, 0.22, 0.12], [0, 0, Math.PI / 2]);
+  addPart(parts, new THREE.CylinderGeometry(0.10, 0.15, 0.72, 14), 'primary', [0, 0.46, 0.08], [Math.PI / 2 - 0.35, 0, 0]);
+  addPart(parts, new THREE.TorusGeometry(0.13, 0.025, 6, 16), 'metal', [0, 0.58, 0.40], [-0.35, 0, 0]);
+  addPart(parts, new THREE.CylinderGeometry(0.13, 0.11, 0.12, 14), 'metal', [0, 0.58, 0.40], [Math.PI / 2 - 0.35, 0, 0]);
+  addPart(parts, new THREE.SphereGeometry(0.09, 8, 8), 'metal', [0, 0.34, -0.24]);
+  addPart(parts, new THREE.SphereGeometry(0.055, 8, 8), 'dark', [0.18, 0.34, -0.16]);
+  addPart(parts, new THREE.SphereGeometry(0.055, 8, 8), 'dark', [0.18, 0.34, -0.05]);
+  addPart(parts, new THREE.SphereGeometry(0.055, 8, 8), 'dark', [0.18, 0.43, -0.10]);
   return parts;
 }
 
 function soldierParts(): Part[] {
   const parts: Part[] = [];
-  addPart(parts, new THREE.ConeGeometry(0.2, 0.46, 7), 'primary', [0, 0.29, 0]);
-  addPart(parts, new THREE.CylinderGeometry(0.13, 0.16, 0.2, 7), 'primary', [0, 0.51, 0]);
-  addPart(parts, new THREE.SphereGeometry(0.105, 10, 8), 'skin', [0, 0.64, 0]);
-  addPart(parts, new THREE.ConeGeometry(0.15, 0.13, 7), 'metal', [0, 0.75, 0]);
-  addPart(parts, new THREE.CylinderGeometry(0.16, 0.16, 0.05, 14), 'dark', [0.19, 0.4, 0.18], [Math.PI / 2, 0, 0]);
-  addPart(parts, new THREE.CylinderGeometry(0.018, 0.018, 0.9, 5), 'dark', [-0.2, 0.42, 0.05]);
-  addPart(parts, new THREE.ConeGeometry(0.06, 0.16, 6), 'metal', [-0.2, 0.94, 0.05]);
-  addPart(parts, new THREE.BoxGeometry(0.23, 0.035, 0.035), 'metal', [-0.2, 0.74, 0.05]);
+  addPart(parts, new THREE.CylinderGeometry(0.36, 0.40, 0.05, 8), 'dark', [0, 0.025, 0]);
+  addPart(parts, new THREE.BoxGeometry(0.09, 0.18, 0.11), 'dark', [-0.09, 0.14, 0]);
+  addPart(parts, new THREE.BoxGeometry(0.09, 0.18, 0.11), 'dark', [0.09, 0.14, 0]);
+  addPart(parts, new THREE.CylinderGeometry(0.18, 0.24, 0.26, 8), 'primary', [0, 0.32, 0]);
+  addPart(parts, new THREE.BoxGeometry(0.28, 0.24, 0.18), 'primary', [0, 0.52, 0]);
+  addPart(parts, new THREE.BoxGeometry(0.18, 0.18, 0.04), 'metal', [0, 0.52, 0.10]);
+  addPart(parts, new THREE.SphereGeometry(0.095, 10, 8), 'skin', [0, 0.70, 0.02]);
+  addPart(parts, new THREE.ConeGeometry(0.13, 0.16, 8), 'metal', [0, 0.82, 0.02]);
+  addPart(parts, new THREE.CylinderGeometry(0.01, 0.01, 0.12, 6), 'primary', [0, 0.94, 0.02]);
+  addPart(parts, new THREE.BoxGeometry(0.24, 0.42, 0.04), 'primary', [-0.20, 0.42, 0.14], [0, 0.25, 0]);
+  addPart(parts, new THREE.BoxGeometry(0.20, 0.36, 0.02), 'metal', [-0.20, 0.42, 0.16], [0, 0.25, 0]);
+  addPart(parts, new THREE.CylinderGeometry(0.015, 0.015, 0.96, 6), 'dark', [0.18, 0.48, 0.12]);
+  addPart(parts, new THREE.ConeGeometry(0.05, 0.20, 6), 'metal', [0.18, 1.02, 0.12]);
+  addPart(parts, new THREE.CylinderGeometry(0.03, 0.03, 0.08, 6), 'primary', [0.18, 0.90, 0.12]);
   return parts;
 }
 
-function buildFigurine(piece: Piece, intensity: number): THREE.Group {
+function buildFigurine(
+  piece: Piece,
+  intensity: number
+): { figurine: THREE.Group; materials: Record<MaterialKind, THREE.Material> } {
   const materials = colorMaterials(piece.color, intensity);
   const partMap: Record<Piece['type'], () => Part[]> = {
     general: generalParts,
@@ -207,9 +252,9 @@ function buildFigurine(piece: Piece, intensity: number): THREE.Group {
     soldier: soldierParts
   };
   const figurine = mergeParts(partMap[piece.type](), materials);
-  figurine.rotation.y = piece.color === 'red' ? 0 : Math.PI;
+  figurine.rotation.y = piece.color === 'red' ? Math.PI : 0;
   figurine.position.y = 0.02;
-  return figurine;
+  return { figurine, materials };
 }
 
 function createTokenGeometry(): THREE.BufferGeometry {
@@ -229,6 +274,41 @@ function createTokenGeometry(): THREE.BufferGeometry {
     new THREE.Vector2(0, height - 0.012)
   ];
   return new THREE.LatheGeometry(points, 48);
+}
+
+function createBadge(piece: Piece, glyphColor: string, outlineColor: string): THREE.Group {
+  const badgeGroup = new THREE.Group();
+  badgeGroup.name = 'badge-group';
+
+  const plaqueMat = new THREE.MeshStandardMaterial({
+    color: piece.color === 'red' ? 0x2b0d09 : 0x161817,
+    roughness: 0.65,
+    metalness: 0.35
+  });
+  const plaque = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.19, 0.024, 24), plaqueMat);
+  plaque.rotation.x = Math.PI / 2;
+  plaque.castShadow = true;
+  badgeGroup.add(plaque);
+
+  const rimMat = new THREE.MeshStandardMaterial({
+    color: piece.color === 'red' ? palette.gold : 0xc7c0af,
+    roughness: 0.35,
+    metalness: 0.75
+  });
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.182, 0.012, 8, 24), rimMat);
+  badgeGroup.add(rim);
+
+  const badgeTex = makeGlyphTexture(PIECE_GLYPHS[piece.color][piece.type], glyphColor, outlineColor, 512, false);
+  const faceMat = new THREE.MeshBasicMaterial({
+    map: badgeTex,
+    transparent: true,
+    depthWrite: false
+  });
+  const face = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.34), faceMat);
+  face.position.z = 0.014;
+  badgeGroup.add(face);
+
+  return badgeGroup;
 }
 
 export function createPieceObject(piece: Piece, skin: BoardSkin, intensity: number): PieceObject {
@@ -280,21 +360,12 @@ export function createPieceObject(piece: Piece, skin: BoardSkin, intensity: numb
   glyph.renderOrder = 2;
   group.add(glyph);
 
-  const figurine = buildFigurine(piece, intensity);
-  figurine.visible = skin === 'figurine';
+  const { figurine, materials: figurineMaterials } = buildFigurine(piece, intensity);
   group.add(figurine);
 
-  const badgeMaterial = new THREE.MeshStandardMaterial({
-    map: makeGlyphTexture(PIECE_GLYPHS[piece.color][piece.type], glyphColor, outlineColor, 256, true),
-    transparent: true,
-    roughness: 0.85,
-    metalness: 0.02,
-    side: THREE.DoubleSide
-  });
-  const badge = new THREE.Mesh(new THREE.PlaneGeometry(0.36, 0.36), badgeMaterial);
-  badge.position.set(0, 0.22, piece.color === 'red' ? 0.41 : -0.41);
-  badge.rotation.y = piece.color === 'red' ? 0 : Math.PI;
-  badge.visible = skin === 'figurine';
+  const badge = createBadge(piece, glyphColor, outlineColor);
+  badge.position.set(0, 0.17, 0.36);
+  badge.rotation.x = -0.46;
   group.add(badge);
 
   const selectionRing = new THREE.Mesh(
@@ -312,10 +383,20 @@ export function createPieceObject(piece: Piece, skin: BoardSkin, intensity: numb
   selectionRing.position.y = 0.012;
   group.add(selectionRing);
 
-  group.userData = { piece, baseMaterial, glyphMaterial, glyph, figurine, selectionRing, base, rim, badge };
-  if (skin === 'figurine') {
-    setPieceSkin(group, 'figurine');
-  }
+  group.userData = {
+    piece,
+    baseMaterial,
+    glyphMaterial,
+    glyph,
+    figurine,
+    figurineMaterials,
+    intensity,
+    selectionRing,
+    base,
+    rim,
+    badge
+  };
+  setPieceSkin(group, skin);
   return group;
 }
 
@@ -323,11 +404,9 @@ export function setPieceSkin(object: PieceObject, skin: BoardSkin): void {
   const isFigurine = skin === 'figurine';
   object.userData.figurine.visible = isFigurine;
   if (object.userData.badge) object.userData.badge.visible = isFigurine;
-  object.userData.base.scale.set(isFigurine ? 0.92 : 1, isFigurine ? 0.5 : 1, isFigurine ? 0.92 : 1);
-  object.userData.rim.position.y = isFigurine ? 0.132 : 0.264;
-  object.userData.rim.scale.setScalar(isFigurine ? 0.92 : 1);
-  object.userData.glyph.scale.setScalar(isFigurine ? 0.85 : 1);
-  object.userData.glyph.position.y = isFigurine ? 0.145 : 0.290;
+  object.userData.base.visible = !isFigurine;
+  object.userData.rim.visible = !isFigurine;
+  object.userData.glyph.visible = !isFigurine;
 }
 
 export function setPieceSelected(object: PieceObject, selected: boolean): void {
@@ -338,4 +417,11 @@ export function setPieceSelected(object: PieceObject, selected: boolean): void {
 export function setPieceThreatened(object: PieceObject, threatened: boolean): void {
   object.userData.baseMaterial.emissive.setHex(threatened ? 0xff2c12 : object.userData.piece.color === 'red' ? 0x280400 : 0x07100e);
   object.userData.baseMaterial.emissiveIntensity = threatened ? 0.9 : 0.36;
+  if (object.userData.figurineMaterials) {
+    const primaryMat = object.userData.figurineMaterials.primary as THREE.MeshStandardMaterial;
+    if (primaryMat) {
+      primaryMat.emissive.setHex(threatened ? 0x991b1b : object.userData.piece.color === 'red' ? 0x300500 : 0x080808);
+      primaryMat.emissiveIntensity = threatened ? 0.95 : object.userData.intensity;
+    }
+  }
 }
