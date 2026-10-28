@@ -8,6 +8,7 @@ import type {
   BoardSkin,
   BoardState,
   EffectIntensity,
+  Move,
   Position,
   VisualMove
 } from '../types/chess';
@@ -17,6 +18,8 @@ export interface ChessBoardHandle {
   resetCamera: (overhead?: boolean) => void;
   showHint: (from: Position, to: Position) => void;
   clearHint: () => void;
+  setCinematicEnding: (enabled: boolean) => void;
+  replayCheckmateMove: (move: Move, onComplete?: () => void) => void;
 }
 
 interface ChessBoardProps {
@@ -63,7 +66,9 @@ export const ChessBoard = forwardRef<ChessBoardHandle, ChessBoardProps>(function
   useImperativeHandle(ref, () => ({
     resetCamera: (overhead = false) => sceneRef.current?.resetCamera(overhead),
     showHint: (from: Position, to: Position) => sceneRef.current?.showHint(from, to),
-    clearHint: () => sceneRef.current?.clearHint()
+    clearHint: () => sceneRef.current?.clearHint(),
+    setCinematicEnding: (enabled: boolean) => sceneRef.current?.setCinematicEnding(enabled),
+    replayCheckmateMove: (move: Move, onComplete?: () => void) => sceneRef.current?.replayCheckmateMove(move, onComplete)
   }), []);
 
   useEffect(() => {

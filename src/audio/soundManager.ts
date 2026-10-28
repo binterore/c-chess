@@ -114,10 +114,15 @@ class SoundManager {
   }
 
   check(): void {
-    this.tone(186, 1.1, 0.16, 'sine', 0.02, 142);
-    this.tone(279, 0.92, 0.09, 'triangle', 0.04, 206);
-    this.tone(372, 0.8, 0.04, 'sine', 0.06, 280);
-    this.noise(0.7, 0.08, 320, 0.02, 0.5);
+    // Sharp sword-qi blade unsheathe glint
+    this.tone(1480, 0.22, 0.14, 'triangle', 0, 2400);
+    this.noise(0.08, 0.16, 2800, 0.005, 2.4);
+
+    // Deep martial gong & resonance
+    this.tone(186, 1.2, 0.22, 'sine', 0.02, 142);
+    this.tone(279, 1.0, 0.14, 'triangle', 0.04, 206);
+    this.tone(372, 0.85, 0.08, 'sine', 0.06, 280);
+    this.noise(0.7, 0.12, 320, 0.02, 0.5);
   }
 
   victory(): void {

@@ -4,11 +4,11 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { copy } from '../i18n';
 import type {
   BoardSkin,
   BoardState,
   EffectIntensity,
+  Move,
   Position,
   VisualMove
 } from '../types/chess';
@@ -62,10 +62,6 @@ const CAMERA_BLACK = new THREE.Vector3(0, 8.8, -14.5);
 const CAMERA_OVERHEAD = new THREE.Vector3(0.01, 16.8, 0.5);
 const TARGET = new THREE.Vector3(0, 0.15, 0);
 
-function smoothStep(value: number): number {
-  return value * value * (3 - 2 * value);
-}
-
 function easeOutCubic(value: number): number {
   return 1 - Math.pow(1 - value, 3);
 }
@@ -90,7 +86,12 @@ export class ChessScene {
   private legalSet = new Set<string>();
   private selectedId: string | null = null;
   private checkedId: string | null = null;
+  private checkedGroup: THREE.Group | null = null;
+  private checkedRing: THREE.Mesh | null = null;
   private checkedSprite: THREE.Sprite | null = null;
+  private checkedBeam: THREE.Mesh | null = null;
+  private lastMovePos: { from: Position; to: Position } | null = null;
+  private cinematicEnding = false;
   private hoverRing: THREE.Mesh;
   private skin: BoardSkin;
   private intensity: EffectIntensity;
@@ -403,11 +404,13 @@ export class ChessScene {
 
   setCheckedPiece(pieceId: string | null): void {
     this.checkedId = pieceId;
-    if (this.checkedSprite) {
-      this.markersRoot.remove(this.checkedSprite);
-      this.checkedSprite.material.map?.dispose();
-      this.checkedSprite.material.dispose();
+    if (this.checkedGroup) {
+      this.markersRoot.remove(this.checkedGroup);
+      this.disposeObject(this.checkedGroup);
+      this.checkedGroup = null;
       this.checkedSprite = null;
+      this.checkedRing = null;
+      this.checkedBeam = null;
     }
 
     for (const object of this.pieces.values()) {
@@ -415,19 +418,75 @@ export class ChessScene {
     }
     if (!pieceId) return;
 
+    const kingObj = this.pieces.get(pieceId);
+    if (!kingObj) return;
+
+    this.checkedGroup = new THREE.Group();
+    this.checkedGroup.name = 'checked-group';
+
+    // 1. Tactical Threat Array Ring on ground around the King (glowing radiant crimson-gold)
+    const ringGeo = new THREE.RingGeometry(0.48, 0.58, 48);
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: 0xff3b1a,
+      transparent: true,
+      opacity: 0.85,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    this.checkedRing = new THREE.Mesh(ringGeo, ringMat);
+    this.checkedRing.rotation.x = -Math.PI / 2;
+    this.checkedRing.position.copy(kingObj.position);
+    this.checkedRing.position.y = BOARD_TOP + 0.018;
+    this.checkedGroup.add(this.checkedRing);
+
+    // 2. Floating Martial "将" Seal (NO "危" character!)
     const material = new THREE.SpriteMaterial({
-      map: makeGlyphTexture(copy.board.danger, '#ffb089', 'rgba(255,40,20,0.9)', 512, true),
+      map: makeGlyphTexture('将', '#ffe4ad', 'rgba(235,40,15,0.95)', 512, true),
       transparent: true,
       depthWrite: false,
       blending: THREE.AdditiveBlending
     });
     this.checkedSprite = new THREE.Sprite(material);
-    this.checkedSprite.scale.set(0.9, 0.9, 0.9);
-    this.markersRoot.add(this.checkedSprite);
+    this.checkedSprite.scale.set(1.15, 1.15, 1.15);
+    this.checkedSprite.position.copy(kingObj.position);
+    this.checkedSprite.position.y = BOARD_TOP + 1.6;
+    this.checkedGroup.add(this.checkedSprite);
+
+    // 3. Crackling Sword Qi Threat Beam from attacker to King
+    if (this.lastMovePos) {
+      const attackerPos = this.toWorld(this.lastMovePos.to);
+      const targetPos = kingObj.position.clone();
+      const dir = new THREE.Vector3().subVectors(targetPos, attackerPos);
+      const len = dir.length();
+      if (len > 0.1) {
+        const beamGeo = new THREE.CylinderGeometry(0.035, 0.035, len, 8);
+        const beamMat = new THREE.MeshBasicMaterial({
+          color: 0xff3815,
+          transparent: true,
+          opacity: 0.65,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false
+        });
+        this.checkedBeam = new THREE.Mesh(beamGeo, beamMat);
+        this.checkedBeam.position.copy(attackerPos).add(targetPos).multiplyScalar(0.5);
+        this.checkedBeam.position.y = BOARD_TOP + 0.25;
+        this.checkedBeam.quaternion.setFromUnitVectors(Y_AXIS, dir.clone().normalize());
+        this.checkedGroup.add(this.checkedBeam);
+      }
+    }
+
+    this.markersRoot.add(this.checkedGroup);
     this.checkPulseStart = this.clock.getElapsedTime();
+
+    // Trigger dynamic check impact
+    this.shakeTime = 0.18;
+    this.shakeIntensity = 0.045;
+    this.spawnBurst(kingObj.position, 0xff3b1a, 24, 1.2);
   }
 
   setLastMove(from: Position | null, to: Position | null): void {
+    this.lastMovePos = from && to ? { from, to } : null;
     this.markersRoot.children
       .filter((child) => child.userData.kind === 'last-move')
       .forEach((child) => {
@@ -578,6 +637,7 @@ export class ChessScene {
   }
 
   resetCamera(overhead = false): void {
+    this.setCinematicEnding(false);
     this.moveCamera(overhead ? CAMERA_OVERHEAD : this.flipped ? CAMERA_BLACK : CAMERA_RED, TARGET, 700);
   }
 
@@ -827,12 +887,92 @@ export class ChessScene {
     this.fadingMeshes.push({ mesh: beam, born: performance.now(), duration: 420, startOpacity: 0.48, grow: 1 });
   }
 
+  setCinematicEnding(enabled: boolean): void {
+    this.cinematicEnding = enabled;
+    if (enabled) {
+      this.controls.autoRotate = true;
+      this.controls.autoRotateSpeed = 2.0;
+      const targetCam = this.flipped
+        ? new THREE.Vector3(-6.2, 5.8, -8.5)
+        : new THREE.Vector3(6.2, 5.8, 8.5);
+      this.moveCamera(targetCam, new THREE.Vector3(0, BOARD_TOP, 0), 1200);
+    } else {
+      this.controls.autoRotate = this.idle;
+      this.controls.autoRotateSpeed = 0.22;
+    }
+  }
+
+  replayCheckmateMove(move: Move, onComplete?: () => void): void {
+    this.setCinematicEnding(true);
+
+    const pieceObj = this.pieces.get(move.piece.id);
+    if (!pieceObj) {
+      onComplete?.();
+      return;
+    }
+
+    const fromWorld = this.toWorld(move.from);
+    const toWorld = this.toWorld(move.to);
+
+    // Place piece back at fromWorld
+    pieceObj.position.copy(fromWorld);
+    pieceObj.position.y = BOARD_TOP;
+
+    // If victim was captured, recreate or restore victim at toWorld
+    let victimObj: PieceObject | null = null;
+    if (move.captured) {
+      victimObj = this.pieces.get(move.captured.id) ?? null;
+      if (!victimObj) {
+        victimObj = createPieceObject(move.captured, this.skin, this.intensity === 'off' ? 0.2 : 0.45);
+        this.pieces.set(move.captured.id, victimObj);
+        this.piecesRoot.add(victimObj);
+      }
+      victimObj.position.copy(toWorld);
+      victimObj.position.y = BOARD_TOP;
+      victimObj.scale.setScalar(1);
+      victimObj.visible = true;
+      victimObj.traverse((c) => {
+        if (c instanceof THREE.Mesh) {
+          const mats = Array.isArray(c.material) ? c.material : [c.material];
+          mats.forEach((m) => {
+            (m as THREE.Material).transparent = false;
+            (m as THREE.Material).opacity = 1;
+          });
+        }
+      });
+    }
+
+    this.setLastMove(move.from, move.to);
+
+    window.setTimeout(() => {
+      const visual: VisualMove = {
+        id: Date.now(),
+        move,
+        duration: 1350
+      };
+      this.playMove(visual);
+
+      window.setTimeout(() => {
+        const strikePos = toWorld.clone();
+        strikePos.y += 0.2;
+        this.spawnBurst(strikePos, move.piece.color === 'red' ? 0xff5a20 : 0x44ddbb, 64, 2.6);
+        this.addRing(toWorld, palette.goldBright, 3.2, 800);
+        this.shakeTime = 0.35;
+        this.shakeIntensity = 0.085;
+      }, 1200);
+
+      window.setTimeout(() => {
+        onComplete?.();
+      }, 2200);
+    }, 450);
+  }
+
   playVictory(color: 'red' | 'black' | 'draw'): void {
     const position = new THREE.Vector3(0, BOARD_TOP + 0.4, 0);
     const colorHex = color === 'red' ? 0xff6b3f : color === 'black' ? 0x8ee5d5 : 0xe7c279;
     this.spawnBurst(position, colorHex, 64, 2.8);
     this.addRing(position, colorHex, 5.5, 1000);
-    this.moveCamera(new THREE.Vector3(5.2, 7.8, 8.2), new THREE.Vector3(0, 0.1, 0), 850);
+    this.setCinematicEnding(true);
   }
 
   private resize(): void {
@@ -890,14 +1030,25 @@ export class ChessScene {
       }
     });
 
+    if (this.checkedRing) {
+      this.checkedRing.rotation.z += delta * 1.6;
+      const ringPulse = 0.95 + Math.sin((elapsed - this.checkPulseStart) * 6) * 0.08;
+      this.checkedRing.scale.setScalar(ringPulse);
+    }
+
     if (this.checkedSprite && this.checkedId) {
       const piece = this.pieces.get(this.checkedId);
       if (piece) {
         this.checkedSprite.position.copy(piece.position);
-        this.checkedSprite.position.y += 1.35;
-        const pulse = 1 + Math.sin((elapsed - this.checkPulseStart) * 4) * 0.08;
+        this.checkedSprite.position.y += 1.6;
+        const pulse = 1.15 + Math.sin((elapsed - this.checkPulseStart) * 5) * 0.12;
         this.checkedSprite.scale.setScalar(pulse);
       }
+    }
+
+    if (this.checkedBeam) {
+      const beamMat = this.checkedBeam.material as THREE.MeshBasicMaterial;
+      beamMat.opacity = 0.45 + Math.sin(elapsed * 12) * 0.2;
     }
 
     this.bursts.forEach((burst) => {
@@ -964,7 +1115,7 @@ export class ChessScene {
     }
     this.updateAmbient(now, delta, elapsed);
     this.updateMove(now);
-    this.controls.autoRotate = this.idle && !this.activeMove;
+    this.controls.autoRotate = this.cinematicEnding ? true : (this.idle && !this.activeMove);
     this.controls.update();
 
     if (this.shakeTime > 0) {

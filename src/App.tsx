@@ -200,6 +200,7 @@ export function App() {
     setResultOpen(false);
     setPuzzleFailed(false);
     clearSelection();
+    boardRef.current?.setCinematicEnding(false);
     boardRef.current?.clearHint();
     setSceneKey((key) => key + 1);
   }, [clearSelection]);
@@ -649,8 +650,26 @@ export function App() {
     if (winner === 'draw' || isSpectator) soundManager.draw();
     else if (mode === 'local' || winner === playerColor) soundManager.victory();
     else soundManager.defeat();
-    window.setTimeout(() => setResultOpen(true), 650);
+
+    boardRef.current?.setCinematicEnding(true);
+    const lastMove = snapshot.history[snapshot.history.length - 1];
+    if (lastMove) {
+      boardRef.current?.replayCheckmateMove(lastMove);
+      window.setTimeout(() => setResultOpen(true), 4200);
+    } else {
+      window.setTimeout(() => setResultOpen(true), 1200);
+    }
   }, [isAnimating, isSpectator, mode, playerColor, puzzle, screen, snapshot]);
+
+  const handleReplayCheckmate = useCallback(() => {
+    setResultOpen(false);
+    const lastMove = snapshot.history[snapshot.history.length - 1];
+    if (lastMove) {
+      boardRef.current?.replayCheckmateMove(lastMove);
+    } else {
+      boardRef.current?.setCinematicEnding(true);
+    }
+  }, [snapshot.history]);
 
   useEffect(() => {
     return () => {
@@ -952,6 +971,8 @@ export function App() {
             onCopyRoom={copyRoom}
             onSendChat={sendChat}
             onRematch={replayGame}
+            onReplayCheckmate={handleReplayCheckmate}
+            onOpenResult={() => setResultOpen(true)}
           />
         </>
       )}
@@ -1009,6 +1030,8 @@ export function App() {
         puzzle={puzzle}
         puzzleFailed={puzzleFailed}
         hasNextPuzzle={Boolean(puzzle && endgames.findIndex((game) => game.id === puzzle.id) < endgames.length - 1)}
+        hasCheckmateReplay={snapshot.history.length > 0}
+        onReplayCheckmate={handleReplayCheckmate}
         onClose={() => setResultOpen(false)}
         onReplay={replayGame}
         onHome={returnHome}

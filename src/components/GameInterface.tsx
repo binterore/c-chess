@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
+  Award,
   BookOpen,
   BrainCircuit,
   Camera,
@@ -74,6 +75,8 @@ interface GameInterfaceProps {
   onCopyRoom: (roomId: string) => void;
   onSendChat: (text: string) => void;
   onRematch: () => void;
+  onReplayCheckmate?: () => void;
+  onOpenResult?: () => void;
 }
 
 const levelLabel: Record<AiLevel, string> = {
@@ -142,9 +145,15 @@ export function GameInterface({
   onRestart,
   onCopyRoom,
   onSendChat,
-  onRematch
+  onRematch,
+  onReplayCheckmate,
+  onOpenResult
 }: GameInterfaceProps) {
   const [chatDraft, setChatDraft] = useState('');
+  const [checkSlashActive, setCheckSlashActive] = useState(false);
+  const [checkSlashKey, setCheckSlashKey] = useState(0);
+  const prevCheckedRef = useRef(false);
+
   const me = localPlayerColor ?? playerColor;
   const opponentColor: PieceColor = me === 'red' ? 'black' : 'red';
   const onlineMe = onlineRoom?.players.find((player) => player.color === me);
@@ -152,6 +161,16 @@ export function GameInterface({
   const redCaptures = useMemo(() => capturedGlyphs(snapshot, 'black'), [snapshot]);
   const blackCaptures = useMemo(() => capturedGlyphs(snapshot, 'red'), [snapshot]);
   const checked = isInCheck(snapshot.board, snapshot.turn) && snapshot.status === 'playing';
+
+  useEffect(() => {
+    if (checked && !prevCheckedRef.current) {
+      setCheckSlashActive(true);
+      setCheckSlashKey((k) => k + 1);
+      const timer = window.setTimeout(() => setCheckSlashActive(false), 1700);
+      return () => window.clearTimeout(timer);
+    }
+    prevCheckedRef.current = checked;
+  }, [checked]);
   const myTurn = !isSpectator && (mode === 'local' || snapshot.turn === me);
   const waiting = mode === 'online' && onlineRoom?.status === 'waiting';
   const isOnline = mode === 'online';
@@ -220,10 +239,14 @@ export function GameInterface({
   return (
     <div className="game-interface">
       <div className={`check-vignette ${checked ? 'active' : ''}`} />
-      {checked && snapshot.status === 'playing' && (
-        <div className="check-callout">
-          <strong>{copy.board.danger}</strong>
-          <span>{copy.game.checked}</span>
+      {checkSlashActive && (
+        <div className="check-cinematic-banner" key={checkSlashKey}>
+          <div className="check-cinematic-slash" />
+          <div className="check-cinematic-chars">
+            <span className="check-char-left">将</span>
+            <span className="check-char-right">军</span>
+          </div>
+          <div className="check-cinematic-sub">CHECK</div>
         </div>
       )}
       <header className="game-topbar">
@@ -345,6 +368,29 @@ export function GameInterface({
           </button>
         </div>
       </div>
+
+      {snapshot.status === 'ended' && (
+        <div className="endgame-replay-dock">
+          <div className="endgame-replay-info">
+            <Sparkles size={14} className="sparkle-spin" />
+            <span>{snapshot.result?.reason === 'checkmate' ? '绝杀时刻 · 全景旋转' : '终局全景 · 自动旋转'}</span>
+          </div>
+          <div className="endgame-replay-actions">
+            {snapshot.history.length > 0 && onReplayCheckmate && (
+              <button className="endgame-btn-replay" onClick={onReplayCheckmate}>
+                <RotateCcw size={14} />
+                <span>回放绝杀</span>
+              </button>
+            )}
+            {onOpenResult && (
+              <button className="endgame-btn-summary" onClick={onOpenResult}>
+                <Award size={14} />
+                <span>查看结算</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {puzzle && (
         <div className="puzzle-objective">

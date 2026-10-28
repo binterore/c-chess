@@ -37,7 +37,9 @@ interface ResultOverlayProps {
   puzzle: Endgame | null;
   puzzleFailed: boolean;
   hasNextPuzzle: boolean;
+  hasCheckmateReplay?: boolean;
   onClose: () => void;
+  onReplayCheckmate?: () => void;
   onReplay: () => void;
   onHome: () => void;
   onNextPuzzle: () => void;
@@ -64,7 +66,9 @@ export function ResultOverlay({
   puzzle,
   puzzleFailed,
   hasNextPuzzle,
+  hasCheckmateReplay = false,
   onClose,
+  onReplayCheckmate,
   onReplay,
   onHome,
   onNextPuzzle,
@@ -144,6 +148,11 @@ export function ResultOverlay({
             </>
           ) : (
             <>
+              {hasCheckmateReplay && onReplayCheckmate && (
+                <button className="result-secondary result-replay-action" onClick={onReplayCheckmate}>
+                  <Sparkles size={16} />回放绝杀
+                </button>
+              )}
               <button className="result-secondary" onClick={onClose}><Eye size={16} />{copy.result.review}</button>
               <button className="result-primary" onClick={onReplay}><RotateCcw size={17} />{copy.result.replay}</button>
             </>

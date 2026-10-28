@@ -12,7 +12,7 @@ import {
   VolumeX
 } from 'lucide-react';
 import { copy } from '../i18n';
-import type { BoardState, GameMode, Position } from '../types/chess';
+import type { BoardSkin, BoardState, GameMode, Position } from '../types/chess';
 import { ChessBoard } from './ChessBoard';
 
 interface HomeScreenProps {
