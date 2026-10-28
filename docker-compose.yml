@@ -1,0 +1,9 @@
+services:
+  c-chess:
+    build: .
+    container_name: c-chess
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
