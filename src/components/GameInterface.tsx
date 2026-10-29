@@ -19,6 +19,7 @@ import {
   Send,
   Settings,
   Shield,
+  Smartphone,
   Sparkles,
   Undo2,
   Volume2,
@@ -33,6 +34,7 @@ import type {
   EffectIntensity,
   EngineInfo,
   GameMode,
+  GameRecord,
   GameSnapshot,
   PieceColor,
   PublicOnlineRoom
@@ -59,6 +61,9 @@ interface GameInterfaceProps {
   connected: boolean;
   messages: ChatMessage[];
   puzzle: Endgame | null;
+  replayRecord?: GameRecord | null;
+  replayIndex?: number;
+  localClocks?: Record<PieceColor, number> | null;
   flipped: boolean;
   panelOpen: boolean;
   onPanelOpenChange: (open: boolean) => void;
@@ -77,6 +82,14 @@ interface GameInterfaceProps {
   onRematch: () => void;
   onReplayCheckmate?: () => void;
   onOpenResult?: () => void;
+  onSaveGame: () => void;
+  onOpenArchive: () => void;
+  onOpenRules: () => void;
+  onAnalyze: () => void;
+  onSeekReplay?: (index: number) => void;
+  onShareRoom: () => void;
+  onMutePlayer: (color: PieceColor, muted: boolean) => void;
+  onReportMessage: (message: ChatMessage) => void;
 }
 
 const levelLabel: Record<AiLevel, string> = {
@@ -89,7 +102,9 @@ const modeLabel: Record<GameMode, string> = {
   ai: copy.game.ai,
   local: copy.game.local,
   online: copy.game.online,
-  puzzle: copy.game.puzzle
+  puzzle: copy.game.puzzle,
+  replay: '棋谱复盘',
+  analysis: '局面分析'
 };
 
 function formatClock(seconds: number, unlimited = false): string {
@@ -130,6 +145,9 @@ export function GameInterface({
   connected,
   messages,
   puzzle,
+  replayRecord = null,
+  replayIndex = 0,
+  localClocks = null,
   flipped,
   panelOpen,
   onPanelOpenChange,
@@ -147,7 +165,15 @@ export function GameInterface({
   onSendChat,
   onRematch,
   onReplayCheckmate,
-  onOpenResult
+  onOpenResult,
+  onSaveGame,
+  onOpenArchive,
+  onOpenRules,
+  onAnalyze,
+  onSeekReplay,
+  onShareRoom,
+  onMutePlayer,
+  onReportMessage
 }: GameInterfaceProps) {
   const [chatDraft, setChatDraft] = useState('');
   const [checkSlashActive, setCheckSlashActive] = useState(false);
@@ -174,12 +200,16 @@ export function GameInterface({
   const myTurn = !isSpectator && (mode === 'local' || snapshot.turn === me);
   const waiting = mode === 'online' && onlineRoom?.status === 'waiting';
   const isOnline = mode === 'online';
+  const isReplay = mode === 'replay';
+  const isHost = isOnline && onlineRoom?.hostColor === me;
   const topColor: PieceColor = flipped ? 'red' : 'black';
   const bottomColor: PieceColor = flipped ? 'black' : 'red';
   const topActive = snapshot.turn === topColor && snapshot.status === 'playing';
   const bottomActive = snapshot.turn === bottomColor && snapshot.status === 'playing';
   const aiName = mode === 'ai' ? `AI · ${levelLabel[difficulty]}` : onlineOpponent?.name ?? copy.game.opponent;
-  const topName = mode === 'local'
+  const topName = isReplay
+    ? (topColor === 'red' ? replayRecord?.redName : replayRecord?.blackName) ?? copy.game.opponent
+    : mode === 'local'
     ? copy.game.blackSide
     : mode === 'online'
       ? waiting && !onlineRoom?.players.find((player) => player.color === topColor)
@@ -188,7 +218,9 @@ export function GameInterface({
         ? onlineRoom?.players.find((player) => player.color === topColor)?.name ?? copy.game.spectator
         : topColor === me ? onlineMe?.name ?? playerName : onlineOpponent?.name ?? copy.game.opponent
       : topColor === me ? playerName : aiName;
-  const bottomName = mode === 'local'
+  const bottomName = isReplay
+    ? (bottomColor === 'red' ? replayRecord?.redName : replayRecord?.blackName) ?? copy.game.opponent
+    : mode === 'local'
     ? copy.game.redSide
     : mode === 'online'
       ? waiting && !onlineRoom?.players.find((player) => player.color === bottomColor)
@@ -199,10 +231,10 @@ export function GameInterface({
       : bottomColor === me ? playerName : aiName;
   const topTime = mode === 'online'
     ? onlineRoom?.players.find((player) => player.color === topColor)?.timeLeft ?? 0
-    : 0;
+    : localClocks?.[topColor] ?? 0;
   const bottomTime = mode === 'online'
     ? onlineRoom?.players.find((player) => player.color === bottomColor)?.timeLeft ?? 0
-    : 0;
+    : localClocks?.[bottomColor] ?? 0;
   const movePairs = useMemo(() => {
     const pairs: Array<{ index: number; red?: string; black?: string }> = [];
     snapshot.history.forEach((move, index) => {
@@ -214,7 +246,9 @@ export function GameInterface({
     return pairs;
   }, [snapshot.history]);
   const puzzleUsed = puzzle ? snapshot.history.filter((move) => move.piece.color === playerColor).length : 0;
-  const currentStatus = waiting
+  const currentStatus = isReplay
+    ? `复盘第 ${replayIndex} / ${replayRecord?.history.length ?? 0} 着`
+    : waiting
     ? copy.setup.waiting
     : isSpectator
       ? copy.game.spectator
@@ -257,6 +291,9 @@ export function GameInterface({
             <div><strong>{copy.brand.name}</strong><small>{modeLabel[mode]}</small></div>
           </div>
           {isOnline && onlineRoom && (
+            <button className="round-action glass room-share-action" onClick={onShareRoom} aria-label="邀请二维码"><Smartphone size={16} /></button>
+          )}
+          {isOnline && onlineRoom && (
             <button className="room-chip" onClick={() => onCopyRoom(onlineRoom.id)}>
               <span>{copy.game.room}</span><b>{onlineRoom.id}</b><Copy size={13} />
             </button>
@@ -286,6 +323,13 @@ export function GameInterface({
         </div>
       </header>
 
+      {checked && snapshot.lastMove && (
+        <div className="check-guidance" role="status">
+          <Shield size={14} />
+          <span>对方上一手 <b>{snapshot.lastMove.notation}</b> 正在攻击将帅。必须移将、吃子、垫子或以其他方式解除将军。</span>
+        </div>
+      )}
+
       <div className="board-side-stack">
         <div className={`player-badge top ${topActive ? 'active' : ''}`}>
           <span className={`player-seal ${topColor}`}>{topColor === 'red' ? PIECE_GLYPHS.red.general : PIECE_GLYPHS.black.general}</span>
@@ -294,9 +338,10 @@ export function GameInterface({
             <strong>{topName}</strong>
             <span className="capture-row">{topColor === 'black' ? blackCaptures.join('') : redCaptures.join('')}</span>
           </div>
-          {isOnline && !waiting && <b className="clock">{formatClock(topTime, onlineRoom?.timeLimit === 0)}</b>}
+          {(isOnline || localClocks) && !waiting && <b className="clock">{formatClock(topTime, isOnline && onlineRoom?.timeLimit === 0)}</b>}
           {mode === 'ai' && topColor !== me && <BrainCircuit size={16} />}
           {mode === 'online' && onlineRoom?.players.find((player) => player.color === topColor)?.connected === false && <WifiOff size={14} />}
+          {isHost && topColor !== me && <button className="chat-mute-badge" onClick={() => onMutePlayer(topColor, !onlineRoom?.players.find((player) => player.color === topColor)?.muted)} aria-label={`${onlineRoom?.players.find((player) => player.color === topColor)?.muted ? '解除' : '设置'}禁言`}><MessageCircle size={13} />{onlineRoom?.players.find((player) => player.color === topColor)?.muted ? '解除' : '禁言'}</button>}
         </div>
 
         <div className={`player-badge bottom ${bottomActive ? 'active' : ''}`}>
@@ -306,26 +351,35 @@ export function GameInterface({
             <strong>{bottomName}</strong>
             <span className="capture-row">{bottomColor === 'black' ? blackCaptures.join('') : redCaptures.join('')}</span>
           </div>
-          {isOnline && !waiting && <b className="clock">{formatClock(bottomTime, onlineRoom?.timeLimit === 0)}</b>}
+          {(isOnline || localClocks) && !waiting && <b className="clock">{formatClock(bottomTime, isOnline && onlineRoom?.timeLimit === 0)}</b>}
           {mode === 'ai' && bottomColor !== me && <BrainCircuit size={16} />}
           {mode === 'online' && onlineRoom?.players.find((player) => player.color === bottomColor)?.connected === false && <WifiOff size={14} />}
+          {isHost && bottomColor !== me && <button className="chat-mute-badge" onClick={() => onMutePlayer(bottomColor, !onlineRoom?.players.find((player) => player.color === bottomColor)?.muted)} aria-label={`${onlineRoom?.players.find((player) => player.color === bottomColor)?.muted ? '解除' : '设置'}禁言`}><MessageCircle size={13} />{onlineRoom?.players.find((player) => player.color === bottomColor)?.muted ? '解除' : '禁言'}</button>}
         </div>
       </div>
 
       <div className="board-unified-dock">
         <div className="dock-group">
-          {!isSpectator && !waiting && (
+          {!isSpectator && !waiting && !isReplay && (
             <button className="dock-btn" onClick={onUndo} disabled={snapshot.history.length === 0 || snapshot.status === 'ended'} title={copy.game.undo}>
               <Undo2 size={16} />
               <span>{copy.game.undo}</span>
             </button>
           )}
-          {!isSpectator && !waiting && (
+          {!isSpectator && !waiting && !isReplay && (
             <button className="dock-btn dock-btn-highlight" onClick={onHint} title={copy.game.hint}>
               <Lightbulb size={16} />
               <span>{copy.game.hint}</span>
             </button>
           )}
+        </div>
+
+        <div className="dock-divider" />
+
+        <div className="dock-group">
+          {!isReplay && <button className="dock-btn" onClick={onAnalyze} title="AI 局面分析"><BrainCircuit size={16} /><span>分析</span></button>}
+          {!isReplay && <button className="dock-btn" onClick={onSaveGame} title="保存当前棋谱"><History size={16} /><span>保存</span></button>}
+          <button className="dock-btn" onClick={onOpenArchive} title="棋谱库"><BookOpen size={16} /><span>棋谱</span></button>
         </div>
 
         <div className="dock-divider" />
@@ -344,19 +398,19 @@ export function GameInterface({
         <div className="dock-divider" />
 
         <div className="dock-group">
-          {!isSpectator && !waiting && !isOnline && (
+          {!isSpectator && !waiting && !isOnline && !isReplay && (
             <button className="dock-btn" onClick={onRestart} title={copy.game.restart}>
               <RotateCcw size={16} />
               <span>{copy.game.restart}</span>
             </button>
           )}
-          {!isSpectator && !waiting && isOnline && (
+          {!isSpectator && !waiting && isOnline && !isReplay && (
             <button className="dock-btn" onClick={onDraw} title={copy.game.draw}>
               <Handshake size={16} />
               <span>{copy.game.draw}</span>
             </button>
           )}
-          {!isSpectator && !waiting && (
+          {!isSpectator && !waiting && !isReplay && (
             <button className="dock-btn dock-btn-danger" onClick={onResign} title={copy.game.resign}>
               <Flag size={16} />
               <span>{copy.game.resign}</span>
@@ -369,7 +423,7 @@ export function GameInterface({
         </div>
       </div>
 
-      {snapshot.status === 'ended' && (
+      {snapshot.status === 'ended' && !isReplay && (
         <div className="endgame-replay-dock">
           <div className="endgame-replay-info">
             <Sparkles size={14} className="sparkle-spin" />
@@ -444,10 +498,10 @@ export function GameInterface({
               </div>
             )}
             {movePairs.map((pair) => (
-              <div key={pair.index} className="move-row">
+              <div key={pair.index} className={`move-row ${onSeekReplay && Math.ceil(replayIndex / 2) === pair.index ? 'current' : ''}`}>
                 <span className="move-number">{String(pair.index).padStart(2, '0')}</span>
-                <span className="move-red">{pair.red ?? '·'}</span>
-                <span className="move-black">{pair.black ?? '·'}</span>
+                <button className="move-red" onClick={() => onSeekReplay?.((pair.index - 1) * 2 + 1)} disabled={!onSeekReplay || !pair.red}>{pair.red ?? '·'}</button>
+                <button className="move-black" onClick={() => onSeekReplay?.(pair.index * 2)} disabled={!onSeekReplay || !pair.black}>{pair.black ?? '·'}</button>
               </div>
             ))}
           </div>
@@ -461,8 +515,8 @@ export function GameInterface({
                 ))}
               </div>
               <div className="chat-feed">
-                {messages.slice(-3).map((message) => (
-                  <p key={message.id}><b>{message.senderName}</b>{message.text}</p>
+                {messages.slice(-6).map((message) => (
+                  <p key={message.id}><b>{message.senderName}</b><span>{message.text}</span><button onClick={() => onReportMessage(message)} title="举报消息">举报</button></p>
                 ))}
               </div>
               <div className="chat-input">
@@ -472,7 +526,7 @@ export function GameInterface({
             </div>
           )}
 
-          {snapshot.status === 'ended' && (
+          {snapshot.status === 'ended' && !isReplay && (
             <button className="rematch-button" onClick={onRematch}><RotateCcw size={16} />{copy.result.replay}</button>
           )}
         </div>
@@ -480,6 +534,7 @@ export function GameInterface({
         <div className="panel-footer-actions">
           {!isSpectator && !waiting && <button onClick={onResign}><Flag size={15} />{copy.game.resign}</button>}
           {!isSpectator && !waiting && isOnline && <button onClick={onDraw}><Handshake size={15} />{copy.game.draw}</button>}
+          <button onClick={onOpenRules}><BookOpen size={15} />规则指南</button>
           <button onClick={onSettings}><Settings size={15} />{copy.settingsTitle}</button>
         </div>
       </aside>
@@ -498,6 +553,7 @@ export function GameInterface({
           </button>
           <div className="waiting-actions">
             <button onClick={() => onCopyRoom(onlineRoom.id)}><Copy size={15} />{copy.setup.copyLink}</button>
+            <button onClick={onShareRoom}><Smartphone size={15} />扫码邀请</button>
             <button onClick={onBack}><ArrowLeft size={15} />{copy.online.leaveRoom}</button>
           </div>
           <div className="waiting-player">

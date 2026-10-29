@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  applyBoardMove,
   createInitialBoard,
   findGeneral,
   getAllLegalMoves,
@@ -16,6 +17,7 @@ import {
   createGameSnapshot
 } from '../src/engine/game';
 import { getAiMove } from '../src/engine/ai';
+import { findOpeningMove } from '../src/engine/openings';
 import { NOTATION_EXPECTATIONS } from '../src/i18n/chess';
 
 describe('Chinese chess rules', () => {
@@ -183,4 +185,17 @@ describe('Chinese chess rules', () => {
     expect(move).not.toBeNull();
     expect(getLegalMoves(board, move!.from, 'red').some(([x, y]) => x === move!.to[0] && y === move!.to[1])).toBe(true);
   });
+
+  it('returns legal opening-book moves', () => {
+    let board = createInitialBoard();
+    let turn: 'red' | 'black' = 'red';
+    for (let ply = 0; ply < 4; ply += 1) {
+      const move = findOpeningMove(board, turn);
+      expect(move).not.toBeNull();
+      expect(isLegalMove(board, move!.from, move!.to, turn)).toBe(true);
+      board = applyBoardMove(board, move!.from, move!.to);
+      turn = turn === 'red' ? 'black' : 'red';
+    }
+  });
+
 });

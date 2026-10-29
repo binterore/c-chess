@@ -687,6 +687,24 @@ export function setPieceSkin(object: PieceObject, skin: BoardSkin): void {
   object.userData.base.visible = !isFigurine;
   object.userData.rim.visible = !isFigurine;
   object.userData.glyph.visible = !isFigurine;
+  const base = object.userData.baseMaterial;
+  const red = object.userData.piece.color === 'red';
+  if (skin === 'jade') {
+    base.color.setHex(red ? 0xb75c4d : 0x72c4ae);
+    base.roughness = 0.24;
+    base.metalness = 0.16;
+    base.emissive.setHex(red ? 0x260705 : 0x05211b);
+  } else if (skin === 'bronze') {
+    base.color.setHex(red ? 0xb26a39 : 0x7c9587);
+    base.roughness = 0.32;
+    base.metalness = 0.72;
+    base.emissive.setHex(red ? 0x241006 : 0x081a15);
+  } else if (skin === 'classic') {
+    base.color.setHex(red ? 0xfff0ed : 0xf2f2f0);
+    base.roughness = 0.45;
+    base.metalness = 0.08;
+  }
+  base.needsUpdate = true;
 }
 
 export function setPieceSelected(object: PieceObject, selected: boolean): void {

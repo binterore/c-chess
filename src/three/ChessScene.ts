@@ -10,6 +10,7 @@ import type {
   EffectIntensity,
   Move,
   Position,
+  QualityLevel,
   VisualMove
 } from '../types/chess';
 import { BOARD_CELL, BOARD_TOP, createBattlefield, type Battlefield } from './battlefield';
@@ -91,8 +92,10 @@ export class ChessScene {
   private lastMovePos: { from: Position; to: Position } | null = null;
   private cinematicEnding = false;
   private hoverRing: THREE.Mesh;
+  private keyboardRing: THREE.Mesh | null = null;
   private skin: BoardSkin;
   private intensity: EffectIntensity;
+  private quality: QualityLevel;
   private mobile: boolean;
   private flipped = false;
   private idle = false;
@@ -130,6 +133,7 @@ export class ChessScene {
     options: {
       skin: BoardSkin;
       intensity: EffectIntensity;
+      quality: QualityLevel;
       flipped: boolean;
       callbacks: SceneCallbacks;
     }
@@ -138,6 +142,7 @@ export class ChessScene {
     this.callbacks = options.callbacks;
     this.skin = options.skin;
     this.intensity = options.intensity;
+    this.quality = options.quality;
     this.flipped = options.flipped;
     this.mobile = window.matchMedia('(max-width: 760px)').matches;
     this.scene.background = new THREE.Color(0x110f17);
@@ -150,12 +155,12 @@ export class ChessScene {
       powerPreference: 'high-performance',
       alpha: false
     });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2.5));
+    this.renderer.setPixelRatio(this.pixelRatio());
     this.renderer.setSize(container.clientWidth, container.clientHeight);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.0;
-    this.renderer.shadowMap.enabled = this.intensity !== 'off';
+    this.renderer.shadowMap.enabled = this.intensity !== 'off' && this.quality !== 'low';
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.domElement.className = 'battle-canvas';
     this.renderer.domElement.setAttribute('aria-label', '3D Chinese chess battlefield');
@@ -165,9 +170,13 @@ export class ChessScene {
     this.controls.target.copy(TARGET);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.07;
-    this.controls.enableRotate = false; // 固定视角，锁定角度
-    this.controls.enableZoom = false;
+    this.controls.enableRotate = true;
+    this.controls.enableZoom = true;
     this.controls.enablePan = false;
+    this.controls.minDistance = 7;
+    this.controls.maxDistance = 22;
+    this.controls.minPolarAngle = Math.PI * 0.18;
+    this.controls.maxPolarAngle = Math.PI * 0.47;
     this.controls.autoRotateSpeed = 2.0;
     this.controls.update();
 
@@ -196,10 +205,24 @@ export class ChessScene {
     this.animate();
   }
 
+  private pixelRatio(): number {
+    const cap = this.quality === 'low' ? 1 : this.quality === 'balanced' ? 1.75 : 2.5;
+    return Math.min(window.devicePixelRatio, cap);
+  }
+
+  setQuality(quality: QualityLevel): void {
+    if (this.quality === quality) return;
+    this.quality = quality;
+    this.renderer.setPixelRatio(this.pixelRatio());
+    this.renderer.shadowMap.enabled = this.intensity !== 'off' && quality !== 'low';
+    this.rebuildComposer();
+    this.resize();
+  }
+
   private rebuildComposer(): void {
     this.composer?.dispose();
     this.composer = null;
-    if (this.mobile || this.intensity !== 'full') return;
+    if (this.mobile || this.intensity !== 'full' || this.quality !== 'high') return;
 
     const composer = new EffectComposer(this.renderer);
     composer.addPass(new RenderPass(this.scene, this.camera));
@@ -211,7 +234,7 @@ export class ChessScene {
     );
     composer.addPass(bloom);
     composer.addPass(new OutputPass());
-    composer.setPixelRatio(Math.min(window.devicePixelRatio, 2.5));
+    composer.setPixelRatio(this.pixelRatio());
     composer.setSize(this.container.clientWidth, this.container.clientHeight);
     this.composer = composer;
   }
@@ -635,6 +658,27 @@ export class ChessScene {
     this.markersRoot.add(guide);
   }
 
+  setKeyboardCursor(position: Position | null): void {
+    if (!position) {
+      if (this.keyboardRing) {
+        this.markersRoot.remove(this.keyboardRing);
+        this.disposeObject(this.keyboardRing);
+        this.keyboardRing = null;
+      }
+      return;
+    }
+    if (!this.keyboardRing) {
+      this.keyboardRing = new THREE.Mesh(
+        new THREE.RingGeometry(0.42, 0.49, 40),
+        new THREE.MeshBasicMaterial({ color: 0xffdf8f, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false })
+      );
+      this.keyboardRing.rotation.x = -Math.PI / 2;
+      this.markersRoot.add(this.keyboardRing);
+    }
+    this.keyboardRing.position.copy(this.toWorld(position));
+    this.keyboardRing.position.y = BOARD_TOP + 0.02;
+  }
+
   clearHint(): void {
     this.markersRoot.children
       .filter((child) => child.userData.kind === 'hint')
@@ -654,7 +698,7 @@ export class ChessScene {
     if (intensity === this.intensity) return;
     this.intensity = intensity;
     this.autoReduced = false;
-    this.renderer.shadowMap.enabled = !this.mobile && intensity !== 'off';
+    this.renderer.shadowMap.enabled = !this.mobile && intensity !== 'off' && this.quality !== 'low';
     this.scene.traverse((child) => {
       if (!(child instanceof THREE.Mesh)) return;
       const materials = Array.isArray(child.material) ? child.material : [child.material];

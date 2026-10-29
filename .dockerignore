@@ -4,3 +4,4 @@ dist
 .gemini
 tests
 *.log
+data

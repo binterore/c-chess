@@ -20,12 +20,15 @@ import type {
   EffectIntensity,
   GameMode,
   GameResult,
-  PieceColor
+  PieceColor,
+  QualityLevel,
+  RenderMode
 } from '../types/chess';
 import type { Endgame } from '../engine/endgames';
 import { copy, format } from '../i18n';
 import { PIECE_GLYPHS } from '../i18n/chess';
 import { puzzleCopy, type PuzzleTitleKey } from '../i18n/puzzles';
+import { useDialogFocus } from './useDialogFocus';
 
 interface ResultOverlayProps {
   open: boolean;
@@ -44,6 +47,7 @@ interface ResultOverlayProps {
   onHome: () => void;
   onNextPuzzle: () => void;
   onRetryPuzzle: () => void;
+  onReviewPuzzle?: () => void;
 }
 
 const reasonText: Record<GameResult['reason'], string> = {
@@ -53,7 +57,8 @@ const reasonText: Record<GameResult['reason'], string> = {
   timeout: copy.result.timeout,
   agreement: copy.result.agreement,
   'repetition-draw': copy.result.repetitionDraw,
-  'perpetual-check': copy.result.perpetualCheck
+  'perpetual-check': copy.result.perpetualCheck,
+  disconnect: '对手断线超时'
 };
 
 export function ResultOverlay({
@@ -72,8 +77,10 @@ export function ResultOverlay({
   onReplay,
   onHome,
   onNextPuzzle,
-  onRetryPuzzle
+  onRetryPuzzle,
+  onReviewPuzzle
 }: ResultOverlayProps) {
+  const panelRef = useDialogFocus(open, onClose);
   if (!open) return null;
   const win = result?.winner === playerColor;
   const draw = result?.winner === 'draw';
@@ -101,10 +108,10 @@ export function ResultOverlay({
   const seal = draw ? copy.result.drawGlyph : PIECE_GLYPHS[winnerColor].general;
 
   return (
-    <div className="modal-layer result-layer" role="dialog" aria-modal="true">
+    <div className="modal-layer result-layer" role="dialog" aria-modal="true" aria-labelledby="result-dialog-title">
       <div className="result-backdrop" />
       <div className="result-rays" />
-      <section className={`result-card ${spectatorWinner ? 'draw' : win ? 'victory' : draw ? 'draw' : 'defeat'} ${puzzleFailed ? 'defeat' : ''}`}>
+      <section ref={panelRef} className={`result-card ${spectatorWinner ? 'draw' : win ? 'victory' : draw ? 'draw' : 'defeat'} ${puzzleFailed ? 'defeat' : ''}`}>
         <div className="result-topline">
           <span><Sparkles size={14} />{copy.brand.latin}</span>
           <button onClick={onClose} aria-label={copy.result.close}><X size={18} /></button>
@@ -115,7 +122,7 @@ export function ResultOverlay({
           <span className="result-seal">{seal}</span>
         </div>
         <small className="result-kicker">{mode === 'puzzle' ? copy.setup.puzzleKicker : copy.brand.motto}</small>
-        <h2>{title}</h2>
+        <h2 id="result-dialog-title">{title}</h2>
         <p>{subtitle}</p>
 
         {puzzle && (
@@ -140,6 +147,7 @@ export function ResultOverlay({
           {mode === 'puzzle' ? (
             <>
               <button className="result-secondary" onClick={onRetryPuzzle}><RotateCcw size={16} />{copy.game.tryAgain}</button>
+              {puzzleFailed && onReviewPuzzle && <button className="result-secondary" onClick={onReviewPuzzle}><Eye size={16} />查看解法</button>}
               {hasNextPuzzle && puzzleWin ? (
                 <button className="result-primary" onClick={onNextPuzzle}>{copy.game.nextPuzzle}<ArrowRight size={17} /></button>
               ) : (
@@ -188,14 +196,15 @@ export function PromptDialog({
   onConfirm,
   onCancel
 }: PromptDialogProps) {
+  const panelRef = useDialogFocus(open, onCancel);
   if (!open) return null;
   return (
-    <div className="modal-layer prompt-layer" role="dialog" aria-modal="true">
+    <div className="modal-layer prompt-layer" role="dialog" aria-modal="true" aria-labelledby="prompt-dialog-title">
       <button className="modal-backdrop" onClick={onCancel} aria-label={cancelLabel} />
-      <section className={`prompt-card ${destructive ? 'destructive' : ''}`}>
+      <section ref={panelRef} className={`prompt-card ${destructive ? 'destructive' : ''}`}>
         <span className="prompt-icon">{incoming ? <Flag size={22} /> : destructive ? <ShieldAlert size={22} /> : <RotateCcw size={22} />}</span>
         <small>{copy.brand.name}</small>
-        <h3>{title}</h3>
+        <h3 id="prompt-dialog-title">{title}</h3>
         <p>{description}</p>
         <div className="prompt-actions">
           <button onClick={onCancel}>{cancelLabel}</button>
@@ -212,6 +221,10 @@ interface SettingsDialogProps {
   skin: BoardSkin;
   soundOn: boolean;
   prefersReduced: boolean;
+  quality: QualityLevel;
+  renderMode: RenderMode;
+  onQuality: (quality: QualityLevel) => void;
+  onRenderMode: (mode: RenderMode) => void;
   onIntensity: (intensity: EffectIntensity) => void;
   onSkin: (skin: BoardSkin) => void;
   onSound: (enabled: boolean) => void;
@@ -227,6 +240,10 @@ export function SettingsDialog({
   skin,
   soundOn,
   prefersReduced,
+  quality,
+  renderMode,
+  onQuality,
+  onRenderMode,
   onIntensity,
   onSkin,
   onSound,
@@ -236,19 +253,22 @@ export function SettingsDialog({
   onClose
 }: SettingsDialogProps) {
   const [confirmClear, setConfirmClear] = useState(false);
+  const panelRef = useDialogFocus(open, onClose);
   if (!open) return null;
+  const constrainedDevice = typeof navigator !== 'undefined' && ((navigator.hardwareConcurrency ?? 8) <= 4 || ((navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 8) <= 4);
   return (
-    <div className="modal-layer settings-layer" role="dialog" aria-modal="true">
+    <div className="modal-layer settings-layer" role="dialog" aria-modal="true" aria-labelledby="settings-dialog-title">
       <button className="modal-backdrop" onClick={onClose} aria-label={copy.common.close} />
-      <section className="settings-panel">
-        <button className="panel-close" onClick={onClose}><X size={18} /></button>
+      <section ref={panelRef} className="settings-panel">
+        <button className="panel-close" onClick={onClose} aria-label={copy.common.close}><X size={18} /></button>
         <header className="settings-header">
           <span>{copy.settings.kicker}</span>
-          <h2>{copy.settings.title}</h2>
+          <h2 id="settings-dialog-title">{copy.settings.title}</h2>
           <p>{copy.settings.subtitle}</p>
         </header>
 
         {prefersReduced && <div className="settings-notice"><MonitorUp size={16} />{copy.settings.reducedNotice}</div>}
+        {constrainedDevice && <div className="settings-notice performance-notice"><MonitorUp size={16} />检测到设备性能有限，建议选择“流畅”画质；出现卡顿时可切换到二维棋盘。</div>}
 
         <div className="settings-group">
           <div className="settings-group-title"><strong>{copy.settings.motion}</strong><small>{copy.settings.motionDesc}</small></div>
@@ -257,6 +277,26 @@ export function SettingsDialog({
               <button key={value} className={intensity === value ? 'active' : ''} onClick={() => onIntensity(value)}>
                 {value === 'full' ? copy.game.full : value === 'reduced' ? copy.game.reduced : copy.game.off}
                 {intensity === value && <Check size={13} />}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="settings-group">
+          <div className="settings-group-title"><strong>画质与渲染</strong><small>低端设备可降低清晰度，或切换二维棋盘</small></div>
+          <div className="segmented-control">
+            {(['high', 'balanced', 'low'] as const).map((value) => (
+              <button key={value} className={quality === value ? 'active' : ''} onClick={() => onQuality(value)}>
+                {value === 'high' ? '高清' : value === 'balanced' ? '平衡' : '流畅'}
+                {quality === value && <Check size={13} />}
+              </button>
+            ))}
+          </div>
+          <div className="segmented-control render-mode-control">
+            {(['auto', '3d', '2d'] as const).map((value) => (
+              <button key={value} className={renderMode === value ? 'active' : ''} onClick={() => onRenderMode(value)}>
+                {value === 'auto' ? '自动' : value === '3d' ? '3D' : '2D'}
+                {renderMode === value && <Check size={13} />}
               </button>
             ))}
           </div>
@@ -316,6 +356,28 @@ export function SettingsDialog({
 
 export function Toast({ message }: { message: string | null }) {
   if (!message) return null;
-  return <div className="toast"><Sparkles size={14} /><span>{message}</span></div>;
+  return <div className="toast" role="status" aria-live="polite"><Sparkles size={14} /><span>{message}</span></div>;
 }
 
+
+export function HandoffDialog({
+  color,
+  onContinue
+}: {
+  color: PieceColor;
+  onContinue: () => void;
+}) {
+  return (
+    <div className="modal-layer handoff-layer" role="dialog" aria-modal="true" aria-labelledby="handoff-title">
+      <div className="handoff-panel">
+        <span className={`handoff-seal ${color}-piece`}>{PIECE_GLYPHS[color].general}</span>
+        <small>{color === 'red' ? '红方回合' : '黑方回合'}</small>
+        <h2 id="handoff-title">请将设备交给{color === 'red' ? '红方' : '黑方'}棋手</h2>
+        <p>棋盘已翻转到当前棋手视角。准备好后再显示局面。</p>
+        <button className="panel-primary" onClick={onContinue} autoFocus>
+          我准备好了 <ChevronRight size={17} />
+        </button>
+      </div>
+    </div>
+  );
+}

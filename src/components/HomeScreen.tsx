@@ -1,8 +1,11 @@
 import {
+  BookOpen,
   BrainCircuit,
+  Library,
   ChevronRight,
   CircleDot,
   Flag,
+  Gem,
   ScrollText,
   Settings,
   Sparkles,
@@ -12,17 +15,22 @@ import {
   VolumeX
 } from 'lucide-react';
 import { copy } from '../i18n';
-import type { BoardSkin, BoardState, GameMode, Position } from '../types/chess';
+import type { BoardSkin, BoardState, GameMode, Position, QualityLevel, RenderMode } from '../types/chess';
 import { ChessBoard } from './ChessBoard';
 
 interface HomeScreenProps {
   board: BoardState;
   skin: BoardSkin;
+  quality: QualityLevel;
+  renderMode: RenderMode;
   soundOn: boolean;
   onMode: (mode: Exclude<GameMode, 'puzzle'> | 'puzzle') => void;
   onToggleSound: () => void;
   onSettings: () => void;
   onDaily: () => void;
+  onArchive: () => void;
+  onRules: () => void;
+  onCollection: () => void;
 }
 
 const modes = [
@@ -35,11 +43,16 @@ const modes = [
 export function HomeScreen({
   board,
   skin,
+  quality,
+  renderMode,
   soundOn,
   onMode,
   onToggleSound,
   onSettings,
-  onDaily
+  onDaily,
+  onArchive,
+  onRules,
+  onCollection
 }: HomeScreenProps) {
   return (
     <div className="home-screen">
@@ -53,6 +66,8 @@ export function HomeScreen({
           visualMove={null}
           skin={skin}
           intensity="full"
+          quality={quality}
+          renderMode={renderMode}
           flipped={false}
           idle
           onSquareClick={(_position: Position) => undefined}
@@ -74,11 +89,15 @@ export function HomeScreen({
           <button onClick={() => onMode('ai')}>{copy.nav.battle}</button>
           <button onClick={() => onMode('puzzle')}>{copy.nav.puzzles}</button>
           <button onClick={() => onMode('online')}>{copy.nav.online}</button>
-          <button onClick={onDaily}>{copy.nav.archive}</button>
+          <button onClick={onArchive}>{copy.nav.archive}</button>
         </nav>
         <div className="header-actions">
           <button className="round-action" onClick={onToggleSound} aria-label={soundOn ? copy.game.soundOn : copy.game.soundOff}>
             {soundOn ? <Volume2 size={17} /> : <VolumeX size={17} />}
+          </button>
+          <button className="round-action" onClick={onCollection} aria-label="棋具工坊"><Gem size={17} /></button>
+          <button className="round-action" onClick={onRules} aria-label="新手规则">
+            <BookOpen size={17} />
           </button>
           <button className="round-action" onClick={onSettings} aria-label={copy.nav.settings}>
             <Settings size={17} />
@@ -140,14 +159,21 @@ export function HomeScreen({
               </button>
             ))}
           </div>
-          <button className="daily-strip" onClick={onDaily}>
-            <span className="daily-icon"><ScrollText size={16} /></span>
-            <span>
-              <strong>{copy.home.dailyTitle}</strong>
-              <small>{copy.home.dailyDesc}</small>
-            </span>
-            <ChevronRight size={15} />
-          </button>
+          <div className="home-dock-actions">
+            <button className="daily-strip" onClick={onDaily}>
+              <span className="daily-icon"><ScrollText size={16} /></span>
+              <span>
+                <strong>{copy.home.dailyTitle}</strong>
+                <small>{copy.home.dailyDesc}</small>
+              </span>
+              <ChevronRight size={15} />
+            </button>
+            <button className="daily-strip archive-strip" onClick={onArchive}>
+              <span className="daily-icon"><Library size={16} /></span>
+              <span><strong>棋谱库</strong><small>复盘、导入与导出完整对局</small></span>
+              <ChevronRight size={15} />
+            </button>
+          </div>
         </aside>
       </main>
 

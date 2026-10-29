@@ -12,6 +12,7 @@ import {
   isInCheck,
   positionKey
 } from './rules';
+import { findOpeningMove } from './openings';
 
 const PIECE_VALUES: Record<PieceType, number> = {
   general: 100000,
@@ -95,7 +96,7 @@ interface SearchContext {
   deadline: number;
   nodes: number;
   stopped: boolean;
-  table: Map<string, { depth: number; score: number }>;
+  table: Map<string, { depth: number; score: number; bound: 'exact' | 'lower' | 'upper' }>;
   killers: Map<number, SearchMove[]>;
 }
 
@@ -199,9 +200,17 @@ function negamax(
 
   const key = positionKey(board, turn);
   const cached = context.table.get(key);
-  if (cached && cached.depth >= depth) return cached.score;
+  if (cached && cached.depth >= depth) {
+    if (cached.bound === 'exact') return cached.score;
+    if (cached.bound === 'lower' && cached.score >= beta) return cached.score;
+    if (cached.bound === 'upper' && cached.score <= alpha) return cached.score;
+    if (cached.bound === 'lower') alpha = Math.max(alpha, cached.score);
+    if (cached.bound === 'upper') beta = Math.min(beta, cached.score);
+    if (alpha >= beta) return cached.score;
+  }
 
   context.nodes += 1;
+  const initialAlpha = alpha;
   const opponent: PieceColor = turn === 'red' ? 'black' : 'red';
   let best = -Infinity;
 
@@ -220,7 +229,8 @@ function negamax(
     }
   }
 
-  context.table.set(key, { depth, score: best });
+  const bound = best <= initialAlpha ? 'upper' : best >= beta ? 'lower' : 'exact';
+  context.table.set(key, { depth, score: best, bound });
   return best;
 }
 
@@ -273,6 +283,19 @@ export function searchBestMove(
   };
   const legal = orderedMoves(board, turn, context);
   if (legal.length === 0) return null;
+
+  const bookChance = level === 'easy' ? 0.2 : level === 'medium' ? 0.38 : 0.55;
+  const bookMove = findOpeningMove(board, turn);
+  if (bookMove && Math.random() < bookChance) {
+    return {
+      ...bookMove,
+      score: evaluate(board, turn),
+      depth: 0,
+      nodes: 0,
+      elapsed: Date.now() - began,
+      evaluation: evaluate(board, turn)
+    };
+  }
 
   let completed = searchAtDepth(board, turn, 1, context, config.quiescence) ?? {
     from: legal[0].from,

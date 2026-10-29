@@ -8,9 +8,9 @@
 
 <p>
   <img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="MIT License" />
-  <img src="https://img.shields.io/badge/Release-Commercial_Ready-e5a93c?style=for-the-badge" alt="Commercial Ready" />
+  <img src="https://img.shields.io/badge/Release-Feature_Rich_Beta-e5a93c?style=for-the-badge" alt="Feature Rich Beta" />
   <img src="https://img.shields.io/badge/Three.js-WebGL_3D-black?style=for-the-badge&logo=three.js" alt="Three.js" />
-  <img src="https://img.shields.io/badge/Engine-Negamax_NNUE-crimson?style=for-the-badge" alt="Negamax" />
+  <img src="https://img.shields.io/badge/Engine-Negamax_AlphaBeta-crimson?style=for-the-badge" alt="Negamax Alpha-Beta" />
   <img src="https://img.shields.io/badge/Acoustics-Physical_WebAudio-00bcd4?style=for-the-badge" alt="Web Audio" />
   <img src="https://img.shields.io/badge/Platform-Web_First_CrossPlatform-10b981?style=for-the-badge" alt="Cross Platform" />
 </p>
@@ -69,69 +69,60 @@
 
 <br />
 
-## 💎 商业化生态架构 · The Commercial Blueprint
-
-商业化不应该靠粗暴逼氪或数值破坏来伤害竞技的纯粹性。真正的商业化，是唤醒玩家对**极致品味与专属仪式感**的占有欲。
+## 🎮 完整玩法 · Game Modes
 
 ```
-                                 ┌── 典藏工坊 (Atelier)：乌木沉香 / 白脂暖玉 / 青铜古印 / 金丝楠木
-                                 │
-   《将 · 界》商业化生态 ────────┼── 传世战场 (Atmosphere)：赤壁雪夜 / 虎牢关烽燧 / 汉宫秋月
-   COMMERCIAL ECOSYSTEM          │
-                                 ├── 礼仪名士录 (Season Pass)：对弈雅称 / 古风封印落款 / 绝杀演出
-                                 │
-                                 └── 社交破圈网络 (Viral Hook)：古风信笺邀请函 / 一键微信扫码开房
+   ┌──────────────┬──────────────┬──────────────┬──────────────┐
+   │   人机演武    │   残局破阵    │   好友论道    │   同屏对弈    │
+   ├──────────────┼──────────────┼──────────────┼──────────────┤
+   │ 3 档棋力      │ 18 道一步杀   │ 公开房/快速匹配│ 双时钟/加秒   │
+   │ 开局书/分析   │ 12 道两步杀   │ 刷新恢复/观战  │ 自动翻面/交接 │
+   │ 自由摆棋      │ 解法复盘      │ 禁言/举报/二维码│ 交接隐私确认 │
+   └──────────────┴──────────────┴──────────────┴──────────────┘
 ```
 
-### 1. 典藏棋具工坊 (Artisan Atelier)
-- **非数值、纯品味定制**：
-  - **「御制沉香」**：深邃碳化老木，落子声如古刹撞钟。
-  - **「羊脂白玉」**：通体微透次表面散射（SSS），温润无暇，金粉填字。
-  - **「宣德古铜」**：青绿铜锈斑驳，沉稳厚重，金戈铁马。
-- 每套棋盘与棋子均配有专属的物理声学衰减曲线与撞击微特效。
+### 🧠 人机演武 · AI Duel
+- **Negamax + Alpha-Beta + 静默搜索 + 带界限置换表**，计算在 Web Worker 后台线程运行。
+- 入门、棋手、国手三档棋力，并附常用开局库与随机开局变化。
+- 可对当前局面进行 AI 分析，显示评分、搜索深度、推荐着法和理由。
+- 支持从自由摆棋局面或棋谱任意一步继续对弈。
 
-### 2. 仪式感传世战场 (Living Dioramas)
-- 不仅仅是棋盘，更是活着的历史沙盘。
-- 支持四季流转与实时天候（细雨落水微澜、烽火余烬飘零、寒夜飞雪覆盘）。
+### 📜 残局破阵 · Endgame Archive
+- 30 道经过自动验证的残局：18 道一步杀、12 道强制两步杀。
+- 每题验证预设杀法、唯一首着及两步题的对手唯一应手。
+- 走错后立即判定失败，可查看完整强制线路、双方着法与杀法复盘。
+- 残局进度保存在本地，并可通过同步码随账号同步。
 
-### 3. 极速社交裂变 (Instant Social Acquisition)
-- **Web-First 零阻力触达**：无需等待应用商店数百兆下载，任何手机或电脑点击即开。
-- **书法火漆印邀请函**：开房一键生成带有古风印信与战局摘要的精致卡片，直达好友对弈。
+### 🌐 好友论道 · Online Rooms
+- 公开房列表与快速匹配；也可创建仅邀请或带密码的私密房。
+- 六位房间码、邀请链接、二维码邀请和系统分享，移动端可直接走微信分享。
+- 服务端权威裁决、整局总时长与每步加秒、悔棋协商、提和、认输、聊天和再来一局。
+- 30 秒断线宽限，页面刷新或服务端重启后可恢复活动房间；明确离开或不重连会判负。
+- 聊天限流、房主禁言与消息举报。
+- 对局结束后由服务端保存完整棋谱；匿名同步码支持跨设备恢复棋谱、战绩、好友与残局记录。
 
-<br />
+### 🗂️ 棋谱库 · Archive & Replay
+- 自动保存人机、同屏、联机、残局与每日挑战记录。
+- 完整逐着回放、任意步跳转、从历史局面继续，以及浅层全盘分析与失误标记。
+- 使用 Xiangqi FEN + ICCS 着法导入和导出，可离线保存为 `.xq` 文件。
+- 好友同步码、对局统计与历史记录通过服务端 `DATA_DIR` 持久化。
 
-## ⚔️ 玩法矩阵 · Gameplay Architecture
+### 💎 赛季与棋具工坊 · Season & Atelier
+- 由对局、胜场、残局和每日挑战累积赛季积分，并展示当前赛季称号。
+- 提供军阵玉雕、经典字章、羊脂暖玉、宣德古铜四套棋具外观；后两套随赛季积分解锁。
+- 外观只改变视觉呈现，不影响棋力或规则数值。
 
-```
-   ┌─────────────────────────────────────────────────────────────┐
-   │                          将 · 界                            │
-   └──────┬──────────────┬──────────────┬─────────────┬──────────┘
-          │              │              │             │
-          ▼              ▼              ▼             ▼
-      人机演武       三十破阵谱       好友论道      同屏对弈
-   (AI Duel)     (Endgame Path)   (P2P Arena)   (Local Pass)
-   入门 / 棋手 / 国手  古谱一手绝杀     毫秒级房间互联   一屏两人轮流出子
-   Web Worker 异步    递进式章节典藏    断线无缝重连     双向无死角视点
-```
-
-### 🧠 1. 人机演武 · Web Worker 独立心智
-- 内置 **Negamax + Alpha-Beta 极速剪枝 + 静默搜索 + 置换表**。
-- 计算在独立后台线程运行，彻底释放 UI 渲染引擎，无论推演多深，画面稳如 60 FPS 磐石。
-- 入门级知礼让，棋手级攻防兼备，国手级步步诛心。
-
-### 📜 2. 残局破阵谱 · 三十道传世绝杀
-- 历时数月精编挑选并全自动定理验证的 30 道一手绝杀古典残局，划为五重名卷。
-- 引导、复盘、破阵连击，打造让人手不释卷的单机探索流程。
-
-### 🌐 3. 好友论道 · 毫秒级权威联机
-- Node.js + Express 5 + Socket.IO 构建的毫秒级实时网络。
-- 服务端权威裁定每一步行棋合法性，支持悔棋协商、提和、认输与快捷雅语传讯。
+### ♿ 兼容与引导 · Access & Onboarding
+- 首次进入提供可交互棋子走法指南，选中棋子时解释走法与合法落点数量。
+- 棋盘支持方向键选格、回车落子，对话框提供焦点循环和 Esc 关闭。
+- WebGL 不可用、上下文丢失或用户主动选择时自动切换到键盘可操作的二维棋盘。
+- 提供高清、平衡、流畅三档画质与自动低端设备提示。
 
 <br />
 
 ## 🏛️ 严谨完备的规则引擎 · The Core Engine
 
-经过数千行端到端单元测试严格验证：
+规则、残局、棋谱格式与联机服务均配有自动化测试：
 
 - [x] **九宫禁制**：将帅九宫步法、飞将对脸照面禁止
 - [x] **兵种特性**：士斜行、象飞田（塞象眼校验）、马走日（蹩马腿判定）、车直行
@@ -168,13 +159,16 @@ pnpm dev
 # 严格类型检查
 pnpm typecheck
 
-# 规则引擎与三十道残局自动化测试套件
+# 规则、残局、棋谱与联机服务测试
 pnpm test
+
+# 针对已启动服务的完整联机冒烟验证
+pnpm verify:online
 
 # 生产环境紧凑优化打包
 pnpm build
 
-# 启动高并发生产级单体全栈服务
+# 启动生产单体服务（默认端口 3001）
 pnpm start
 ```
 
@@ -187,15 +181,28 @@ c-chess/
 ├── src/
 │   ├── three/             # 3D 渲染核心：沙盘、真实材质、烽火粒子、震屏微冲击
 │   ├── engine/            # 纯 TypeScript 规则引擎、记谱器与 AI Negamax 决策器
-│   ├── workers/           # Web Worker AI 离线推演线程
-│   ├── components/        # 统一磨砂玻璃液态船坞、对弈舞台、局内交互
+│   ├── workers/           # AI 搜索、局面分析与全盘分析 Worker
+│   ├── components/        # 棋局、棋谱、每日挑战、规则、摆棋与分析界面
 │   ├── audio/             # Web Audio 物理落子碰撞与空腔回鸣合成器
-│   ├── i18n/              # 国际化语言包与中式记谱格式化
-│   └── services/          # Socket.IO 实时通信与房间状态同步
-├── server/                # Express 5 + Socket.IO 权威服务端
-├── tests/                 # 规则引擎与残局自动化用例
+│   ├── i18n/              # 中文文案与中式记谱格式化
+│   └── services/          # Socket.IO、会话恢复、棋谱与本地持久化
+├── server/                # Express 5 + Socket.IO 权威服务端与 JSON 持久化
+├── data/                  # 服务端账号、棋谱、好友与举报数据（运行时创建）
+├── tests/                 # 规则、残局、棋谱和联机集成测试
 └── public/                # 离线 PWA 支持 (Service Worker)
 ```
+
+<br />
+
+## 💾 数据与部署 · Persistence
+
+服务端默认将账号、棋谱、好友关系、举报记录和活动房间快照写入 `data/store.json`。可使用 `DATA_DIR` 指定持久化目录：
+
+```bash
+DATA_DIR=/var/lib/jiangjie pnpm start
+```
+
+`docker-compose.yml` 已将 `./data` 挂载到容器内的 `/app/data`。生产环境仍建议在反向代理层配置 HTTPS、访问日志和速率限制。
 
 <br />
 
